@@ -109,7 +109,7 @@ getwd()
 
 ::: {.callout-warning}
 ## フォルダのパスに日本語を含めない
-保存先のパスに日本語が含まれると、ファイルの読み込みでエラーが起きることがあります。例えば `C:/Users/田中/デスクトップ/benesse_seminar` のようなパスは避け、`C:/Users/tanaka/Desktop/benesse_seminar` のように英数字のパスを選んでください。
+保存先のパスに日本語が含まれると、ファイルの読み込みでエラーが起きることがあります。例えば `C:/Users/藤原/デスクトップ/benesse_seminar` のようなパスは避け、`C:/Users/fujihara/Desktop/benesse_seminar` のように英数字のパスを選んでください。
 :::
 
 ## フォルダ構成の作成
