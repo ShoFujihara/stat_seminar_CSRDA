@@ -3361,7 +3361,7 @@ Paneの配置変更
 ├── figures/          # 図
 └── tables/           # 表</code></pre>
 <p>RStudioの右下ペインの「Files」タブから「New Folder」でフォルダを作成できます。</p>
-<p>あるいは、以下のRコードを実行してフォルダを一括作成することもできます：</p>
+<p>あるいは、以下のRコードを実行してフォルダを一括作成することもできます。ただし、<strong>プロジェクトを開いた状態</strong>（作業ディレクトリがプロジェクトフォルダに設定されている状態）で実行してください。<code>getwd()</code> でプロジェクトフォルダのパスが表示されることを確認してから実行すると安全です。</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># フォルダを作成</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;data/raw/1571&quot;</span>, <span class="at">recursive =</span> <span class="cn">TRUE</span>)</span>
