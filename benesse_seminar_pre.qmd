@@ -22,10 +22,12 @@ lang: ja
 
 ::: {.callout-important}
 ## 準備ができない場合
-インストールやデータの準備でうまくいかない場合は、事前にメール（xxx@xxx.xx.xx）でご連絡ください。当日の開始前にサポートします。
+インストールやデータの準備でうまくいかない場合は、事前にメール（sho.fujihara@iss.u-tokyo.ac.jp）でご連絡ください。当日の開始前にサポートします。
 :::
 
 # R・RStudioのインストール
+
+{{< video https://youtu.be/-2HfYK1ow6A >}}
 
 ## Rのインストール
 
@@ -51,7 +53,7 @@ lang: ja
 ::: {.callout-warning}
 ## インストール時のセキュリティ警告
 - **Windows**：「WindowsによってPCが保護されました」と表示された場合 →「詳細情報」→「実行」をクリックしてください
-- **Mac**：「開発元を確認できないため開けません」と表示された場合 →「システム設定」→「プライバシーとセキュリティ」から実行を許可してください
+- **Mac**：「開発元を確認できないため開けません」と表示された場合 → アプリを右クリック（またはControl+クリック）→「開く」を選択してください。それでも開けない場合は「システム設定」→「プライバシーとセキュリティ」から実行を許可してください
 :::
 
 ## RStudioの起動確認
@@ -76,6 +78,8 @@ RStudioを起動すると @fig-RStudio のような画面が表示されます�
 
 
 # プロジェクトの作成
+
+{{< video https://youtu.be/DD6Yt2yTTzo >}}
 
 RStudioでは**プロジェクト**を使ってファイルを管理します。分析ごとにプロジェクトを作成することで、ファイルの管理が楽になります。
 
@@ -131,6 +135,8 @@ dir.create("tables", recursive = TRUE)
 
 # パッケージのインストール
 
+{{< video https://youtu.be/nCHCQUbROyw >}}
+
 Rでは「パッケージ」を追加することで機能を拡張できます。セミナーで使用するパッケージを事前にインストールしてください。
 
 以下のコードをRStudioのコンソールに貼り付けて実行してください：
@@ -174,7 +180,7 @@ library(here)
 
 ## データの入手
 
-セミナーで使用するデータは、東京大学社会科学研究所附属社会調査・データアーカイブ研究センター（SSJDA）が提供するものです。
+セミナーで使用するデータは、東京大学社会科学研究所附属社会調査・データアーカイブ研究センター（CSRDA）のSSJDAが提供するものです。
 
 ::: {.callout-note}
 ## データ利用について
@@ -206,6 +212,8 @@ library(here)
 
 
 # データ読み込みの確認
+
+{{< video https://youtu.be/ZoUGupgbKpg >}}
 
 データが正しく配置できたか確認します。以下のコードを実行してください：
 
@@ -249,7 +257,7 @@ Error: 'data/raw/1571/1571.dta' does not exist.
 
 ### Import Datasetを使う方法
 
-コードでの読み込みがうまくいかない場合は、RStudioのGUIを使う方法もあります。
+コードでの読み込みがうまくいかない場合は、RStudioのメニューから読み込む方法もあります。
 
 1. 「File」→「Import Dataset」→「From Stata...」を選択
 2. 「Browse」からファイルを選択
@@ -260,6 +268,10 @@ Error: 'data/raw/1571/1571.dta' does not exist.
 
 
 # Rの基本操作（任意）
+
+{{< video https://youtu.be/9IELKx_ir3E >}}
+
+{{< video https://youtu.be/zKgxQQlmjfo >}}
 
 時間があれば、以下の基本操作も試してみてください。
 
@@ -324,7 +336,7 @@ mean(y)
 - [ ] R・RStudioがインストールされている
 - [ ] RStudioが正常に起動する
 - [ ] `benesse_seminar`プロジェクトが作成されている
-- [ ] フォルダ構成（data/raw, data/processed, scripts, figures, tables）が作成されている
+- [ ] フォルダ構成（data/raw, data/processed, scripts, figures, tables）が作成されている（難しければセミナー当日に一緒に作成します）
 - [ ] 必要なパッケージがインストールされている
 - [ ] `library(tidyverse)` がエラーなく実行できる
 - [ ] データファイルが正しい場所に配置されている
@@ -347,6 +359,15 @@ install.packages("tidyverse", repos = "https://cran.rstudio.com/")
 ### 日本語のファイルパスで問題が起きる
 
 プロジェクトの保存先を変更してください（→「[プロジェクトの作成](#プロジェクトの作成)」の注意を参照）。
+
+## 参考動画
+
+Rの基礎についてさらに学びたい方は、以下の動画も参考にしてください。
+
+- [自分で関数を作る](https://youtu.be/dhHGNr-3qdA)（3:46）
+- [変数からデータを作成する方法](https://youtu.be/kNx_Mjv8FGI)（5:35）
+- [パイプ演算子](https://youtu.be/L5dac9sXm3c)（25:20）
+- [RStudio Cloudの設定](https://youtu.be/JDC1sY_bouA)（8:27）
 
 ## 参考リンク
 
