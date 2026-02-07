@@ -3117,6 +3117,8 @@ vertical-align: -.125em;
   <li><a href="#コメント" id="toc-コメント" class="nav-link" data-scroll-target="#コメント"><span class="header-section-number">7.2</span> コメント</a></li>
   <li><a href="#計算の実行" id="toc-計算の実行" class="nav-link" data-scroll-target="#計算の実行"><span class="header-section-number">7.3</span> 計算の実行</a></li>
   <li><a href="#オブジェクトへの代入" id="toc-オブジェクトへの代入" class="nav-link" data-scroll-target="#オブジェクトへの代入"><span class="header-section-number">7.4</span> オブジェクトへの代入</a></li>
+  <li><a href="#ベクトルの作成" id="toc-ベクトルの作成" class="nav-link" data-scroll-target="#ベクトルの作成"><span class="header-section-number">7.5</span> ベクトルの作成</a></li>
+  <li><a href="#よく使う関数" id="toc-よく使う関数" class="nav-link" data-scroll-target="#よく使う関数"><span class="header-section-number">7.6</span> よく使う関数</a></li>
   </ul></li>
   <li><a href="#チェックリスト" id="toc-チェックリスト" class="nav-link" data-scroll-target="#チェックリスト"><span class="header-section-number">8</span> チェックリスト</a></li>
   <li><a href="#困ったときは" id="toc-困ったときは" class="nav-link" data-scroll-target="#困ったときは"><span class="header-section-number">9</span> 困ったときは</a>
@@ -3302,6 +3304,19 @@ Paneの配置変更
 </ul></li>
 <li>「Create Project」をクリック</li>
 </ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+すでにフォルダを作成済みの場合
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>上の動画のように、先にフォルダを作成してある場合は、手順2で「New Directory」ではなく「<strong>Existing Directory</strong>」を選択し、作成済みのフォルダを指定してください。</p>
+</div>
+</div>
 <div class="callout callout-style-default callout-warning callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -3382,17 +3397,30 @@ Paneの配置変更
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;scales&quot;</span>        <span class="co"># 軸ラベルの書式設定</span></span>
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>))</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+インストール中の赤いメッセージ
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>インストール中にコンソールに赤い文字でメッセージが大量に表示されますが、<strong>これはエラーではありません</strong>。パッケージのダウンロード・コンパイルの進捗状況を示すもので、正常な動作です。初めてのインストールでは数分〜10分程度かかることがあります。「パッケージをソースからインストールしますか？」と聞かれたら「No」を選択してください。</p>
+</div>
+</div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-インストールに時間がかかる場合
+<code>library()</code> 実行時のメッセージ
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>初めてのインストールでは数分〜10分程度かかることがあります。「パッケージをソースからインストールしますか？」と聞かれたら「No」を選択してください。</p>
+<p><code>library(tidyverse)</code> を実行すると、含まれるパッケージの一覧や「Conflicts」（関数名の競合）といったメッセージが表示されますが、これも正常です。エラーが出なければ問題ありません。</p>
 </div>
 </div>
 <p>インストールが完了したら、以下のコードでパッケージが正しく読み込めるか確認してください：</p>
@@ -3479,6 +3507,24 @@ Columns: 2,961
 $ PanelID          &lt;dbl&gt; 1600001, 1600002, 1600003, ...
 $ w1調査フラグ     &lt;dbl&gt; 1, 1, 1, ...
 ...</code></pre>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+データの中身を見る
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>読み込んだデータの特定の変数（列）にアクセスするには、<code>$</code> を使います。</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># PanelID列を表示</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>d<span class="sc">$</span>PanelID</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 特定の変数の度数分布を確認</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(d<span class="sc">$</span>w1学年)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
 <section id="読み込みがうまくいかない場合" class="level2" data-number="6.1">
 <h2 data-number="6.1" class="anchored" data-anchor-id="読み込みがうまくいかない場合"><span class="header-section-number">6.1</span> 読み込みがうまくいかない場合</h2>
 <section id="ファイルが見つからないエラー" class="level3" data-number="6.1.1">
@@ -3535,8 +3581,8 @@ $ w1調査フラグ     &lt;dbl&gt; 1, 1, 1, ...
 <h2 data-number="7.2" class="anchored" data-anchor-id="コメント"><span class="header-section-number">7.2</span> コメント</h2>
 <p><code>#</code>（ハッシュ）より右側の文字はRに無視されます。コードの説明や覚え書きとして活用してください。</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># これはコメントです（実行されません）</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span> <span class="sc">+</span> <span class="dv">1</span>  <span class="co"># 行の途中からコメントを書くこともできます</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># これはコメントです（実行されません）</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span> <span class="sc">+</span> <span class="dv">1</span>  <span class="co"># 行の途中からコメントを書くこともできます</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 2</code></pre>
 </div>
@@ -3546,18 +3592,18 @@ $ w1調査フラグ     &lt;dbl&gt; 1, 1, 1, ...
 <h2 data-number="7.3" class="anchored" data-anchor-id="計算の実行"><span class="header-section-number">7.3</span> 計算の実行</h2>
 <p>スクリプトにコードを入力し、「Ctrl + Enter」（Macは「Cmd + Enter」）で実行します。</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 足し算</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span> <span class="sc">+</span> <span class="dv">1</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 足し算</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span> <span class="sc">+</span> <span class="dv">1</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 2</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 掛け算</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="dv">7</span> <span class="sc">*</span> <span class="dv">8</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 掛け算</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="dv">7</span> <span class="sc">*</span> <span class="dv">8</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 56</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 平方根</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sqrt</span>(<span class="dv">16</span>)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 平方根</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sqrt</span>(<span class="dv">16</span>)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 4</code></pre>
 </div>
@@ -3567,22 +3613,65 @@ $ w1調査フラグ     &lt;dbl&gt; 1, 1, 1, ...
 <h2 data-number="7.4" class="anchored" data-anchor-id="オブジェクトへの代入"><span class="header-section-number">7.4</span> オブジェクトへの代入</h2>
 <p>Rでは、値や計算結果に名前をつけて保存できます。この「名前をつけた入れ物」を<strong>オブジェクト</strong>と呼びます。<code>&lt;-</code>（代入演算子）を使って、右側の値を左側の名前に代入します。</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># xに10を代入</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="dv">10</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>x</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># xに10を代入</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>x</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 10</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ベクトル（複数の値）を代入</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>)</span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>y</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ベクトル（複数の値）を代入</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>)</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>y</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 1 2 3 4 5</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 平均を計算</span></span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(y)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="ベクトルの作成" class="level2" data-number="7.5">
+<h2 data-number="7.5" class="anchored" data-anchor-id="ベクトルの作成"><span class="header-section-number">7.5</span> ベクトルの作成</h2>
+<p><code>c()</code> 以外にも、ベクトルを作る便利な方法があります。</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 連続する整数（1から10まで）</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span><span class="sc">:</span><span class="dv">10</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 3</code></pre>
+<pre><code> [1]  1  2  3  4  5  6  7  8  9 10</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 等間隔の数列（0から1まで0.2刻み）</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">by =</span> <span class="fl">0.2</span>)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0 0.2 0.4 0.6 0.8 1.0</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 同じ値の繰り返し（0を5回）</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rep</span>(<span class="dv">0</span>, <span class="dv">5</span>)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0 0 0 0 0</code></pre>
+</div>
+</div>
+</section>
+<section id="よく使う関数" class="level2" data-number="7.6">
+<h2 data-number="7.6" class="anchored" data-anchor-id="よく使う関数"><span class="header-section-number">7.6</span> よく使う関数</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">1</span>, <span class="dv">4</span>, <span class="dv">1</span>, <span class="dv">5</span>, <span class="dv">9</span>, <span class="dv">2</span>, <span class="dv">6</span>)</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(y)      <span class="co"># 合計</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 31</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">length</span>(y)   <span class="co"># 要素数</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 8</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>(y)     <span class="co"># 平均</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 3.875</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">median</span>(y)   <span class="co"># 中央値</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 3.5</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sd</span>(y)       <span class="co"># 標準偏差</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.748376</code></pre>
 </div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -3609,8 +3698,8 @@ $ w1調査フラグ     &lt;dbl&gt; 1, 1, 1, ...
 </div>
 <div class="callout-body-container callout-body">
 <p>関数の使い方がわからないときは、<code>?関数名</code> で右下ペインにヘルプが表示されます。</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>?mean</span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>?sqrt</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>?mean</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>?sqrt</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
@@ -3655,8 +3744,8 @@ $ w1調査フラグ     &lt;dbl&gt; 1, 1, 1, ...
 <h2 data-number="9.1" class="anchored" data-anchor-id="よくあるエラーと対処法"><span class="header-section-number">9.1</span> よくあるエラーと対処法</h2>
 <section id="パッケージのインストールでエラーが出る" class="level3" data-number="9.1.1">
 <h3 data-number="9.1.1" class="anchored" data-anchor-id="パッケージのインストールでエラーが出る"><span class="header-section-number">9.1.1</span> パッケージのインストールでエラーが出る</h3>
-<div class="sourceCode" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># CRANのミラーを明示的に指定してみる</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;tidyverse&quot;</span>, <span class="at">repos =</span> <span class="st">&quot;https://cran.rstudio.com/&quot;</span>)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># CRANのミラーを明示的に指定してみる</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;tidyverse&quot;</span>, <span class="at">repos =</span> <span class="st">&quot;https://cran.rstudio.com/&quot;</span>)</span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
 <section id="日本語のファイルパスで問題が起きる" class="level3" data-number="9.1.2">
 <h3 data-number="9.1.2" class="anchored" data-anchor-id="日本語のファイルパスで問題が起きる"><span class="header-section-number">9.1.2</span> 日本語のファイルパスで問題が起きる</h3>
