@@ -1,6 +1,6 @@
 ---
 title: "Rによる二次分析入門：事前課題"
-subtitle: "セミナー当日までに準備すること"
+subtitle: "セミナー当日までに確認していただきたいこと"
 author: "藤原翔（東京大学）"
 date: today
 date-format: long
