@@ -1,0 +1,16 @@
+# Data (confidential)
+data/
+
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Quarto
+*_cache/
+*_files/
+
+# OS
+.DS_Store
+Thumbs.db

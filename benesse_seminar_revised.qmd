@@ -1,0 +1,5880 @@
+---
+title: "Rによる二次分析入門"
+subtitle: "「子どもの生活と学びに関する親子調査」を用いて"
+author: "藤原翔（東京大学）"
+date: "2026-02-17"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+    standalone: true
+    code-fold: false
+    code-tools: true
+    theme: cosmo
+    include-in-header:
+      - text: |
+          <style>
+          :root {
+            --bs-primary: #008080;
+            --bs-link-color: #008080;
+          }
+          .title { color: #008080 !important; }
+          h1, h2, h3 { color: #008080; }
+          .callout-tip { border-left-color: #008080 !important; }
+          .callout-warning { border-left-color: #EEA003 !important; }
+          .callout-important { border-left-color: #F85F23 !important; }
+          a { color: #008080; }
+          a:hover { color: #EEA003; }
+          pre, code {
+            font-family: "Source Han Code JP", "Noto Sans Mono CJK JP", "PlemolJP", "Ricty Diminished", monospace;
+          }
+          </style>
+execute:
+  warning: false
+  message: false
+lang: ja
+language:
+  title-block-author-single: "著者"
+  title-block-author-plural: "著者"
+  toc-title-document: "目次"
+  abstract-title: "概要"
+  code-tools-menu-caption: "コード"
+  code-tools-show-all-code: "すべて表示"
+  code-tools-hide-all-code: "すべて非表示"
+---
+
+# はじめに {.unnumbered}
+
+## 本コースの概要
+
+本コースでは，Rをこれまで使ったことのない方，あるいは他のソフトウェアからRへの移行を検討している方を対象に，RStudioを用いた二次分析の基礎を習得することを目指す．
+
+具体的には，以下の内容を扱う．
+
+- プロジェクト管理の方法
+- SSJDAから提供されるデータの読み込みと加工
+- 記述統計量の算出と可視化
+- 回帰分析の実行と解釈
+- パネルデータの構築と基礎的な分析手法
+
+## 使用するデータ
+
+データは，ベネッセ教育総合研究所よりSSJデータアーカイブに寄託されている「子どもの生活と学びに関する親子調査」関連の3つを使用する．
+
+- **メインデータ**：Wave1からWave7までの2015年から2021年にかけて収集されたデータ（調査番号：1571）
+- **補助データ1**：2016年度実施の語彙力・読解力調査（調査番号：1577）
+- **補助データ2**：2019年度実施の同調査（調査番号：1578）
+
+### データの概要
+
+| 項目 | 内容 |
+|------|------|
+| 調査期間 | 2015年〜2021年（7時点） |
+| 対象 | 小学1年生〜高校3年生の子どもと保護者 |
+| サンプル規模 | 約20,000組（有効回答は各Wave約15,000〜16,000組） |
+| データ形式 | `.sav`, `.csv`, `.dta` |
+
+### 変数の構成
+
+変数は以下の順で並んでいる．
+
+1. フェイス変数（学年，性別，父母学歴，父母職業）
+2. Wave1〜Wave7の子ども調査データ
+3. Wave1〜Wave7の保護者調査データ
+
+### 変数名の命名規則
+
+データセット内の変数名は，以下のルールに従って命名されている．
+
+**パネル調査項目（複数時点で同じ質問をたずねている変数）**
+
+- 形式：`dsXXXXXXXXXX_wYc` または `dsXXXXXXXXXX_wYp`
+- `ds` + 10桁の数字 = 変数ID（同じ質問は全Waveで同じIDを持つ）
+- `_w` + 数字 = Wave番号（1〜7）
+- `c` = 子ども調査（child） / `p` = 保護者調査（parent）
+
+例：
+
+| 変数名 | 意味 |
+|--------|------|
+| `ds0000000080_w1c` | Wave1・子ども調査「朝起きる時間」 |
+| `ds0000000080_w2c` | Wave2・子ども調査「朝起きる時間」（同じ質問） |
+| `ds0000000080_w1p` | Wave1・保護者調査の同様の質問 |
+
+::: {.callout-tip}
+## 変数IDの活用
+同じ質問は全Waveで同じ変数ID（10桁の数字部分）を持つ．複数時点のデータを扱う際に，この規則を利用して変数を特定できる．
+:::
+
+**派生変数・作成変数**
+
+データ提供元で作成された派生変数は，異なる命名規則を使用している．
+
+| 変数名 | 意味 |
+|--------|------|
+| `PFED15`〜`PFED21` | 父親の最終学歴（15=2015年, 21=2021年） |
+| `PFworkjob15`〜`PFworkjob21` | 父親の職種 |
+| `w1学年`〜`w7学年` | 各Waveの学年 |
+
+### 欠損値コード
+
+このデータでは，以下の特殊な値が使用されている．
+
+| コード | 意味 |
+|--------|------|
+| 9999 | 無回答・不明 |
+| 8888 | 非該当 |
+| 7777 | 質問なし（対象外の設問） |
+| システム欠損 | 調査対象外（小学校入学前・高校卒業後） |
+
+### 多重回答の処理
+
+多重回答の変数は以下のようにコーディングされている．
+
+| コード | 意味 |
+|--------|------|
+| 1 | 選択 |
+| 0 | 非選択 |
+| 9999 | 無回答・不明 |
+
+### 公開データの制限
+
+公開データでは以下の情報が含まれていない．
+
+- 地域情報（都道府県，市区町村など）
+
+::: {.callout-warning}
+## 注意
+欠損値処理を行う前に，各変数で7777, 8888, 9999がどのような意味を持つかを確認すること．変数によっては実際の値として使用されている可能性がある．
+:::
+
+
+
+## 本日の流れ
+
+| 時間 | 内容 |
+|------|------|
+| 10:30-12:00 | 準備編：Rの操作，プロジェクト設定，データ読み込み |
+| 12:00-13:00 | 昼休み |
+| 13:00-15:00 | 基礎編：変数の変換，記述統計，可視化 |
+| 15:00-15:15 | 休憩 |
+| 15:15-17:00 | 実践編：クロス表分析，回帰分析，パネルデータ |
+
+## 表記上の注意
+
+- パッケージ：`パッケージ名`パッケージ（例：`tidyverse`パッケージ）
+- 関数：`関数名()`（例：`mean()`関数）
+- 特定のパッケージの関数：`パッケージ名::関数名()`（例：`dplyr::filter()`）
+
+本資料では，内容に応じて4種類の色分けされた枠（callout）を使用する．
+
+::: {.callout-tip}
+## ヒント
+実践的なコツやテクニックを記載する．
+:::
+
+::: {.callout-note}
+## 補足
+補足情報や背景説明を記載する．
+:::
+
+::: {.callout-warning}
+## 注意
+間違えやすい点や落とし穴を記載する．
+:::
+
+::: {.callout-important}
+## 重要
+必ず理解すべき重要な概念を記載する．
+:::
+
+
+
+# 準備編
+
+## RStudioの起動
+
+RStudioを起動すると，4つの領域（pane）が表示される．
+
+- **左上：Source pane**：スクリプトを表示・編集する
+- **左下：Console pane**：結果が表示される
+- **右上：Environment pane**：作成されたオブジェクトを確認できる
+- **右下：Output pane**：ファイル，図，パッケージ，ヘルプなどが表示される
+
+### よく使うショートカットキー
+
+| 操作 | Windows | Mac |
+|------|---------|-----|
+| コードを実行 | Ctrl + Enter | Cmd + Enter |
+| すべてのコードを実行 | Ctrl + Shift + Enter | Cmd + Shift + Enter |
+| パイプ演算子 `|>` | Ctrl + Shift + M | Cmd + Shift + M |
+| 代入演算子 `<-` | Alt + - | Option + - |
+| コメントアウト | Ctrl + Shift + C | Cmd + Shift + C |
+| セクション挿入 | Ctrl + Shift + R | Cmd + Shift + R |
+| ヘルプを表示 | F1（カーソル位置の関数） | F1 |
+| 矩形選択 | Alt + ドラッグ | Option + ドラッグ |
+
+::: {.callout-tip collapse="false"}
+## 矩形選択の活用
+矩形選択を使うと，複数行の同じ位置を同時に編集できる．パネルデータで同じ変数の複数年分を作成する際に便利である．
+
+1. まず1行だけ書く：`wake_time__2015 = ds0000000080_w1c,`
+2. その行を7行分コピーする
+3. 矩形選択で`2015`の部分を選択し，`2016`, `2017`...と書き換える
+4. 同様に`w1`の部分も`w2`, `w3`...と書き換える
+:::
+
+### ヘルプの使い方
+
+関数の使い方がわからない場合は，ヘルプを参照する．
+
+```{r}
+#| eval: false
+# 関数のヘルプを表示
+?mean
+?lm
+
+# 演算子のヘルプ（引用符で囲む）
+?"%in%"
+?"["
+
+# キーワードで検索
+help.search("regression")
+```
+
+Output paneの「Help」タブにヘルプが表示される．また，カーソルを関数名の上に置いてF1キーを押してもヘルプが表示される．
+
+
+## 分析の再現性
+
+研究において，分析結果を第三者が再現できることは非常に重要である．Rを使った分析では，コンソールに直接入力するのではなく，すべての操作をスクリプトファイル（`.R`や`.qmd`）に記録することで，再現可能な研究（Reproducible Research）を実現できる．
+
+::: {.callout-important}
+## スクリプトに残すことの重要性
+コンソールに直接入力すると記録に残らない．**必ずRスクリプトに入力し，それを実行する**ようにする．
+
+分析の結果自体は保存する必要はない．**分析のプロセスがRスクリプトに残っていれば，結果は何度でも再現できる**．
+:::
+
+
+## Rによる計算
+
+まずは簡単な計算から始める．
+
+```{r}
+# 足し算
+1 + 1
+
+# 引き算
+2 - 100
+
+# 掛け算
+7 * 8
+
+# 割り算
+123456 / 3
+
+# 累乗
+2^3
+```
+
+::: {.callout-tip collapse="false"}
+## `[1]`は何？
+結果の左に表示される`[1]`は，結果をベクトルで表示した時に，画面の一番左にある数字が何番目の要素であるかを示すものである．
+:::
+
+::: {.callout-tip collapse="false"}
+## ESCキーの使い方
+計算の途中で改行してしまったり，コードに問題があって結果が表示されない場合は，コンソールに`+`が表示されて入力待ちの状態になる．このような場合は**ESCキー**を押すことで`>`の状態に戻すことができる．何かおかしいと思ったら，まずESCで元の状態に戻す．
+:::
+
+::: {.callout-tip collapse="false"}
+## `#`（ハッシュ）でコメントを残す
+`#`でコメントをマメに残す癖をつける．コードを書いているときは理解できていても，時間が空くと何をやっているかを忘れてしまうことがよくある．他人にコードをチェックしてもらう際にもコメントは重要である．
+
+```r
+# --------------------------
+# 2026年2月17日
+# --------------------------
+# 基礎集計
+
+# 性別の度数
+d |> count(sex)
+```
+
+RStudioの「Code」→「Insert Section...」でセクション区切りを挿入することもできる．
+:::
+
+
+## 関数の使用
+
+関数は`関数名(引数)`の形で使用する．
+
+```{r}
+# 平方根
+sqrt(8)
+
+# 自然対数
+log(8)
+
+# 底が2の対数
+log(8, base = 2)
+
+# 指数関数
+exp(2)
+```
+
+
+## ベクトル
+
+複数の数値を並べるには`c()`を使用する．
+
+```{r}
+# ベクトルの作成
+c(1, 2, 2, 3)
+
+# 連続した値
+1:10
+
+# 繰り返し
+rep(1, times = 5)
+```
+
+
+## 数列の作成：seq()
+
+`seq()`関数は等差数列を作成する．
+
+```{r}
+# 0から10まで2刻み
+seq(0, 10, by = 2)
+
+# 0から10まで6個の数を等間隔で
+seq(0, 10, length.out = 6)
+
+# 1から始めて，2ずつ増やして5個
+seq(from = 1, by = 2, length.out = 5)
+```
+
+::: {.callout-tip}
+## seq()の主な引数
+- `from`：開始値
+- `to`：終了値
+- `by`：増分
+- `length.out`：要素数
+:::
+
+
+## 無作為抽出：sample()
+
+`sample()`関数はベクトルから無作為に要素を抽出する．
+
+```{r}
+# 1から10の中から3つを無作為に抽出（非復元抽出）
+sample(1:10, size = 3)
+
+# 復元抽出（同じ値が複数回選ばれる可能性あり）
+sample(1:10, size = 5, replace = TRUE)
+
+# 文字ベクトルからの抽出
+sample(c("A", "B", "C", "D"), size = 2)
+
+# ベクトルの順番をシャッフル
+sample(1:5)
+```
+
+::: {.callout-tip}
+## 再現性の確保：set.seed()
+`sample()`は実行するたびに結果が変わる．同じ結果を再現したい場合は，直前に`set.seed()`で乱数の種を固定する．
+
+```r
+set.seed(123)
+sample(1:10, 3)  # 何度実行しても同じ結果
+```
+:::
+
+::: {.callout-tip}
+## データフレームからの無作為抽出：slice_sample()
+データフレームから無作為に行を抽出する場合は，`dplyr`の`slice_sample()`を使用する．
+
+```r
+# 100行を無作為抽出
+d |> slice_sample(n = 100)
+
+# 10%を無作為抽出
+d |> slice_sample(prop = 0.1)
+
+# 復元抽出（ブートストラップなどで使用）
+d |> slice_sample(n = 100, replace = TRUE)
+```
+:::
+
+
+## 文字列の結合：paste()とpaste0()
+
+`paste()`と`paste0()`は文字列を結合する．
+
+```{r}
+# paste()：スペースで結合（デフォルト）
+paste("Hello", "World")
+
+# sep引数で区切り文字を指定
+paste("2024", "01", "15", sep = "-")
+
+# paste0()：区切りなしで結合（sep = ""と同じ）
+paste0("変数", 1:3)
+
+# collapse引数でベクトルの要素を1つの文字列に
+paste(c("A", "B", "C"), collapse = ", ")
+
+# sepとcollapseの組み合わせ
+paste0("item_", 1:3, collapse = " + ")
+```
+
+::: {.callout-tip}
+## pasteとpaste0の使い分け
+- `paste()`：単語をスペースで区切って結合したいとき
+- `paste0()`：変数名やファイル名など，区切りなしで結合したいとき
+- `sep`：複数の引数の間の区切り文字
+- `collapse`：ベクトルの要素を1つの文字列にまとめるときの区切り文字
+:::
+
+
+## 文字列の検索：grepl()とgrep()
+
+文字列のパターンマッチングには`grepl()`と`grep()`を使う．
+
+```{r}
+# サンプルデータ
+fruits <- c("apple", "banana", "cherry", "apricot", "blueberry")
+
+# grepl()：パターンに一致するかどうか（TRUE/FALSE）
+grepl("a", fruits)
+
+# grep()：パターンに一致する要素の位置（インデックス）
+grep("a", fruits)
+
+# パターンに一致する要素を取り出す
+fruits[grepl("^a", fruits)]  # "a"で始まる要素
+fruits[grepl("y$", fruits)]  # "y"で終わる要素
+```
+
+### 正規表現の基本
+
+パターンマッチングでは正規表現（regular expression）が使える．
+
+| パターン | 意味 | 例 |
+|----------|------|-----|
+| `^` | 文字列の先頭 | `^a`：aで始まる |
+| `$` | 文字列の末尾 | `y$`：yで終わる |
+| `.` | 任意の1文字 | `a.c`：aとcの間に1文字 |
+| `*` | 直前の文字が0回以上 | `ab*`：a, ab, abb, ... |
+| `+` | 直前の文字が1回以上 | `ab+`：ab, abb, ... |
+| `[abc]` | a, b, cのいずれか | `[aeiou]`：母音 |
+| `[^abc]` | a, b, c以外 | `[^0-9]`：数字以外 |
+| `\|` | または | `apple\|banana` |
+
+```{r}
+# starwarsデータで練習
+library(tidyverse)
+
+# 名前に"Sky"を含むキャラクター
+starwars$name[grepl("Sky", starwars$name)]
+
+# 名前が"a"で終わるキャラクター
+starwars$name[grepl("a$", starwars$name)]
+```
+
+::: {.callout-tip}
+## stringrパッケージ
+`tidyverse`に含まれる`stringr`パッケージは，より直感的な文字列処理関数を提供する．
+
+```r
+library(stringr)
+str_detect(fruits, "a")      # grepl()と同じ
+str_subset(fruits, "^a")     # パターンに一致する要素を返す
+str_replace(fruits, "a", "X") # 最初のaをXに置換
+str_replace_all(fruits, "a", "X") # すべてのaをXに置換
+```
+:::
+
+
+## 便利な関数（データ分析での活用例）
+
+以下の関数は，後のデータ分析で頻繁に使用する．ここでは基本的な使い方を紹介し，実際のデータでの活用場面を示す．
+
+### データの大きさを確認：nrow()，ncol()，length()
+
+データを読み込んだ後，まずサンプルサイズと変数の数を確認することが重要である．
+
+```{r}
+# サンプルデータで練習
+df <- data.frame(
+  id = 1:5,
+  score = c(80, 90, 75, 85, 95)
+)
+
+# 行数（サンプルサイズ）
+nrow(df)
+
+# 列数（変数の数）
+ncol(df)
+
+# 行数と列数を同時に取得
+dim(df)
+
+# ベクトルの長さ
+length(1:10)
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `nrow(d)` でサンプルサイズを確認
+- `ncol(d)` で変数の数を確認（このデータは1000以上の変数がある）
+- 分析対象を絞った後に `nrow()` で何ケース残っているか確認
+:::
+
+::: {.callout-warning}
+## length()関数の注意点
+**欠損値がある場合，`length()`関数を有効ケース数として使用してはいけない**．`length()`は欠損値を含む全要素数を返す．
+
+```r
+x <- c(1, 2, NA, 4, NA)
+length(x)           # 5（欠損を含む）
+sum(!is.na(x))      # 3（欠損を除いた有効ケース数）
+```
+
+有効ケース数を求めるには`sum(!is.na(x))`を使用する．頻繁に使う場合は関数を作成すると便利である．
+
+```r
+# 欠損値を除いたサンプルサイズを求める関数
+complete_obs <- function(x) sum(!is.na(x))
+complete_obs(x)  # 3
+```
+
+`nrow()`も同様に欠損値を考慮しないため，特定の変数に欠損がないケース数を知りたい場合は注意が必要である．
+:::
+
+
+### 重複を除く：unique()
+
+変数がどのような値を取るか確認するのに便利である．
+
+```{r}
+# 重複のあるベクトル
+x <- c(1, 2, 2, 3, 3, 3, 4)
+
+# 重複を除いた値
+unique(x)
+
+# ユニークな値の数を数える
+length(unique(x))
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `unique(d$w1学年)` で学年変数がどのような値を取るか確認
+- `length(unique(d$PanelID))` でユニークな個人数を確認
+- カテゴリ変数のカテゴリ数を把握するのに便利
+:::
+
+
+### 並び替え：sort()
+
+データの分布を把握するのに役立つ．
+
+```{r}
+# ベクトルの並び替え
+x <- c(3, 1, 4, 1, 5, 9, 2, 6)
+
+# 昇順に並び替え
+sort(x)
+
+# 降順に並び替え
+sort(x, decreasing = TRUE)
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `sort(unique(d$birth_year))` で出生年度の範囲を確認
+- 外れ値の確認に `sort(d$income__2015)` の最初と最後を見る
+- データフレームの並び替えには `dplyr::arrange()` を使用
+:::
+
+
+### 条件を満たす位置を取得：which()
+
+特定の条件を満たすケースを探すのに使う．
+
+```{r}
+x <- c(10, 25, 30, 15, 40, 5)
+
+# 30以上の値がある位置（インデックス）
+which(x >= 30)
+
+# 最大値・最小値の位置
+which.max(x)
+which.min(x)
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `which(d$vocab_w2_g3 > 70)` で語彙力スコアが高いケースの行番号を取得
+- `which.max(d$income__2015)` で最高収入のケースを特定
+- 外れ値や異常値の位置を特定するのに便利
+:::
+
+
+### 条件判定：any()とall()
+
+データの特性を素早くチェックするのに使う．
+
+```{r}
+x <- c(1, 2, 3, 4, 5)
+
+# いずれかが条件を満たすか
+any(x > 4)   # TRUE
+
+# すべてが条件を満たすか
+all(x > 0)   # TRUE
+
+# 欠損値の確認
+y <- c(1, 2, NA, 4)
+any(is.na(y))   # NAがあるか？
+all(!is.na(y))  # すべて非欠損か？
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `any(is.na(d$vocab_w2_g3))` で欠損値があるか確認
+- `all(d$w1学年 %in% 1:12)` ですべてのケースが在学中か確認
+- データの前提条件を素早くチェック
+:::
+
+
+### 欠損値の判定：is.na()
+
+欠損値の処理はデータ分析で最も重要な作業の一つである．
+
+```{r}
+x <- c(1, NA, 3, NA, 5)
+
+# 欠損値かどうか
+is.na(x)
+
+# 欠損値の数をカウント
+sum(is.na(x))
+
+# 欠損値を除いたベクトル
+x[!is.na(x)]
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `sum(is.na(d$vocab_w2_g3))` で語彙力スコアの欠損数を確認
+- `mean(is.na(d$income__2015))` で欠損率を計算（0.3なら30%欠損）
+- `d[!is.na(d$vocab_w2_g3), ]` で欠損のないケースだけ抽出
+:::
+
+
+### 文字列操作：paste()での変数名作成
+
+繰り返し処理や変数名の作成で活躍する（`paste()`は前述）．
+
+```{r}
+# Wave1からWave7の変数名を一括作成
+paste0("income__", 2015:2021)
+
+# 複数の変数名パターンを作成
+paste0("ds0000000121_w", 1:7, "p")
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- 複数Waveの変数名を一括で指定
+- ファイル名の自動生成
+- ループ処理での変数名の動的指定
+:::
+
+
+### 数値の丸め：round()
+
+結果を見やすく表示するのに使う．
+
+```{r}
+x <- 3.14159
+
+# 四捨五入（小数点以下の桁数を指定）
+round(x, digits = 2)
+
+# 切り捨て・切り上げ
+floor(3.9)   # 3
+ceiling(3.1) # 4
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `round(mean(d$vocab_w2_g3, na.rm = TRUE), 2)` で平均値を小数点2桁に
+- 表やグラフのラベルを見やすくする
+- パーセントを整数に丸める
+:::
+
+
+### その他の計算に使う関数
+
+```{r}
+# 合計
+sum(1:5)
+
+# 絶対値
+abs(-5)
+
+# 累積和
+cumsum(1:5)
+```
+
+::: {.callout-tip}
+## データ分析での活用場面
+- `sum(!is.na(d$vocab_w2_g3))` で有効ケース数を計算
+- `abs(d$score1 - d$score2)` でスコアの差の絶対値を取得
+- `cumsum()` で累積度数を計算
+:::
+
+
+## オブジェクトへの代入
+
+Rでは，値や計算結果に名前をつけて保存できる．この「名前をつけた入れ物」を**オブジェクト**と呼ぶ．`<-`（代入演算子）を使って，右側の値を左側の名前に代入する．
+
+```{r}
+# aに4を代入
+a <- 4
+a
+
+# bにベクトルを代入
+b <- c(1, 2, 3, 4, 5)
+b
+
+# 平均値
+mean(b)
+
+# 標準偏差
+sd(b)
+```
+
+::: {.callout-tip collapse="false"}
+## `<-` と `=`
+代入には`<-`を使用し，関数の引数の指定には`=`を使用するのが一般的である．
+:::
+
+::: {.callout-note}
+## オブジェクトを活用するメリット
+オブジェクトを活用することで，効率的な分析が可能になる：
+
+- **再利用**：一度読み込んだデータや計算結果を何度でも使える
+- **可読性**：`mean(income)`のように，何を計算しているか分かりやすくなる
+- **修正が容易**：データの前処理を修正しても，後続の分析コードを変更する必要がない
+- **再現性**：スクリプトを実行すれば，同じ結果を何度でも再現できる
+:::
+
+
+## パッケージのインストールと読み込み
+
+本コースで使用するパッケージをインストールする．
+
+```{r}
+#| eval: false
+# インストール（初回のみ）
+install.packages("tidyverse", dependencies = TRUE)
+install.packages("haven", dependencies = TRUE)
+install.packages("janitor", dependencies = TRUE)
+install.packages("here", dependencies = TRUE)
+install.packages("broom", dependencies = TRUE)
+install.packages("pacman", dependencies = TRUE)
+```
+
+パッケージの読み込みは毎回必要である．
+
+```{r}
+# パッケージの読み込み
+library(tidyverse)
+library(haven)
+library(janitor)
+library(here)
+library(broom)
+
+# tibbleの表示オプション（出力が長くなりすぎないように）
+options(
+  tibble.print_max = 20,
+  tibble.print_min = 10,
+  tibble.width = 80
+)
+```
+
+### pacmanパッケージを使う方法
+
+`pacman`パッケージの`p_load()`関数を使うと，インストールと読み込みを同時に行える．パッケージがインストールされていなければ自動的にインストールし，読み込む．
+
+```{r}
+#| eval: false
+# pacmanがインストールされていない場合は先にインストール
+# install.packages("pacman")
+
+# インストール（未インストールの場合のみ）と読み込みを同時に行う
+pacman::p_load(tidyverse,
+               haven,
+               janitor,
+               here,
+               broom)
+```
+
+::: {.callout-tip}
+## p_load()の利点
+- インストール済みかどうかを気にしなくてよい
+- 複数パッケージを1行で読み込める
+- スクリプトの共有時に便利（相手の環境でも自動インストールされる）
+:::
+
+::: {.callout-tip collapse="false"}
+## `::`（ダブルコロン）の使い方
+`パッケージ名::関数名()`の形式で，パッケージを読み込まずに関数を使用できる．
+
+```r
+# library()で読み込んでから使う
+library(dplyr)
+filter(d, x > 0)
+
+# ::で直接使う（library()不要）
+dplyr::filter(d, x > 0)
+```
+
+**`::`の利点**
+
+- パッケージを読み込まなくても関数を使える
+- どのパッケージの関数かが明確になる
+- 同名関数の衝突を避けられる（例：`dplyr::filter()` vs `stats::filter()`）
+- スクリプトの可読性が向上する
+:::
+
+### GitHubからのパッケージインストール
+
+CRANに登録されていないパッケージや，開発版を使いたい場合は，GitHubから直接インストールできる．`remotes`パッケージを使う方法が標準的である．
+
+```{r}
+#| eval: false
+# remotesパッケージのインストール（初回のみ）
+install.packages("remotes")
+
+# GitHubからパッケージをインストール
+# 書式: remotes::install_github("ユーザー名/リポジトリ名")
+remotes::install_github("tidyverse/dplyr")  # 開発版dplyr
+
+# 特定のブランチやタグを指定
+remotes::install_github("ユーザー名/リポジトリ名@ブランチ名")
+remotes::install_github("ユーザー名/リポジトリ名@v1.0.0")  # タグ
+```
+
+::: {.callout-note}
+## 他のインストール方法
+GitHubからのインストールには他にも方法がある．
+
+- **devtools**：`devtools::install_github()`．機能が豊富だが依存パッケージが多い．`remotes`は`devtools`から軽量化して切り出されたもの
+- **pak**：`pak::pak("ユーザー名/リポジトリ名")`．高速で依存関係の解決が賢い．CRANとGitHubを同じ関数で扱える．RStudioが開発中の新しいツール
+:::
+
+
+## プロジェクトの作成
+
+RStudioでプロジェクトを作成すると，作業ディレクトリの管理が楽になる．
+
+1. 「File」→「New Project...」を選択
+2. 「New Directory」または「Existing Directory」を選択
+3. フォルダを指定して「Create Project」
+
+プロジェクトを作成すると，`.Rproj`ファイルが作成される．このファイルをダブルクリックすれば，自動的に作業ディレクトリが設定される．
+
+::: {.callout-important}
+## 作業スペースの保存設定（推奨）
+RStudioを終了する際に「Save Workspace...」と聞かれるが，**保存しないことを推奨**する．以下の設定を行うこと．
+
+「Tools」→「Global Options」→「General」で：
+
+- 「Restore .RData into workspace at startup」のチェックを**外す**
+- 「Save workspace to .RData on exit:」を**「Never」**に設定
+
+スクリプトさえ残っていれば，いつでも結果を再現できる．作業スペースを保存すると，古いオブジェクトが残って混乱の原因になることがある．
+:::
+
+### hereパッケージによるパス管理
+
+`here`パッケージを使うと，プロジェクトのルートディレクトリを基準にファイルパスを指定できる．
+
+```{r}
+library(here)
+
+# プロジェクトのルートディレクトリを確認
+here()
+
+# ファイルパスの指定例
+here("data", "raw", "1571", "1571.dta")
+```
+
+::: {.callout-tip}
+## here()の利点
+- OSによるパス区切り文字の違い（`/` vs `\`）を気にしなくてよい
+- `setwd()`を使う必要がない
+- 他の人とコードを共有しても，各自の環境で動作する
+:::
+
+
+
+## フォルダ構成
+
+以下のようなフォルダ構成を推奨する．
+
+```
+benesse_seminar/
+├── benesse_seminar.Rproj
+├── data/
+│   ├── raw/          # 元データ
+│   │   ├── 1571/     # メインのパネルデータ
+│   │   ├── 1577/     # 2016年度語彙力・読解力調査
+│   │   └── 1578/     # 2019年度語彙力・読解力調査
+│   └── processed/    # 加工済みデータ
+├── scripts/          # Rスクリプト
+├── figures/          # 図
+└── tables/           # 表
+```
+
+```{r}
+#| eval: false
+# フォルダの作成
+library(fs)
+dir_create(here(c("data/raw",
+                  "data/processed",
+                  "scripts",
+                  "figures",
+                  "tables")))
+```
+
+
+## データの読み込み
+
+### メインデータ（1571）の読み込み
+
+```{r}
+#| eval: true
+#| cache: true
+# Stataファイル（.dta）で読み込む場合
+d_1571 <- read_dta(here("data", "raw", "1571", "1571.dta"))
+
+# CSVファイルで読み込む場合
+# d <- read_csv(here("data", "raw", "1571", "1571.csv"))
+
+# SPSSファイル（.sav）で読み込む場合
+# d <- read_sav(here("data", "raw", "1571", "1571.sav"))
+
+# データの確認
+dim(d_1571)  # 行数と列数
+```
+
+::: {.callout-note}
+## Stataファイルのラベル属性について
+`haven::read_dta()`で読み込んだStataファイルの変数は，値ラベル（value labels）の情報を`haven_labelled`クラスとして保持している．この属性があると`dplyr::case_match()`などで予期しない動作をすることがあるため，値をリコードする際は`haven::zap_labels()`でラベル属性を除去する．
+
+すべての変数から一括でラベルを除去したい場合は，読み込み直後に以下を実行する：
+
+```r
+d_1571 <- d_1571 |> mutate(across(everything(), zap_labels))
+```
+
+一方，値ラベルをそのままfactor型のカテゴリ名として使いたい場合は`haven::as_factor()`が便利である：
+
+```r
+# 値ラベルをfactorのlevelsに変換
+d <- d |> mutate(var_f = as_factor(var))
+```
+
+`as_factor()`を使うと値ラベルがそのままカテゴリ名になるため，`case_match()`で手動マッピングする手間が省ける．ただし「非該当」「無回答」などもカテゴリに含まれるため，`na_if()`や`fct_drop()`で適宜処理する必要がある．
+:::
+
+### 語彙力・読解力調査データの読み込み
+
+```{r}
+#| eval: true
+#| cache: true
+# 2016年度（Wave2時点）語彙力・読解力調査
+d_1577 <- read_dta(here("data", "raw", "1577", "1577.dta"))
+# 変数名を確認
+# names(d_1577)
+# 語彙力・読解力の偏差値スコアを抽出してリネーム
+d_1577 <- d_1577 |>
+  select(PanelID,
+         vocab_w2_g3 = contains("語彙w2") & contains("小３偏差値"),
+         vocab_w2_g9 = contains("読解w2") & contains("中３偏差値"))
+
+# 2019年度（Wave5時点）語彙力・読解力調査
+d_1578 <- read_dta(here("data", "raw", "1578", "1578.dta"))
+d_1578 <- d_1578 |>
+  select(PanelID,
+         vocab_w5_g3 = contains("語彙w5") & contains("小３偏差値"),
+         vocab_w5_g9 = contains("読解w5") & contains("中３偏差値"))
+```
+
+#### 語彙力・読解力データの変数
+
+| 変数名 | 内容 |
+|--------|------|
+| PanelID | パネルID（メインデータとの結合キー） |
+| 語彙wX_学年 | 語彙力調査に回答した時点の学年 |
+| 語彙wX_回答フラグ | 語彙力調査に協力した者を1 |
+| 語彙wX_IRTスコア | 語彙力調査のIRTスコア |
+| 語彙wX_小３偏差値スコア | IRTスコアの小3基準偏差値（小3の平均が50） |
+| 読解wX_学年 | 読解力調査に回答した時点の学年 |
+| 読解wX_回答フラグ | 読解力調査に協力した者を1 |
+| 読解wX_IRTスコア | 読解力調査のIRTスコア |
+| 読解wX_中３偏差値スコア | IRTスコアの中3基準偏差値（中3の平均が50） |
+
+### データの結合
+
+メインデータと語彙力・読解力データを`PanelID`で結合する．
+
+```{r}
+#| eval: true
+# メインデータに語彙力・読解力データを結合
+d <- d_1571 |> 
+  left_join(d_1577, by = "PanelID") |> 
+  left_join(d_1578, by = "PanelID")
+```
+
+::: {.callout-tip}
+## left_join()について
+`left_join()`は左側のデータ（ここではメインデータ`d`）のすべての行を保持し，右側のデータ（語彙力データ）から一致する行の情報を追加する．一致しない場合は`NA`が入る．
+:::
+
+### 欠損値の処理
+
+```{r}
+#| eval: true
+# 特殊コードをNAに変換する関数
+recode_missing <- function(x) {
+  if_else(x %in% c(7777, 8888, 9999), NA, x)
+}
+
+# 特定の変数に適用
+d <- d |> 
+  mutate(
+    across(
+      c(contains("子ども性別"), starts_with("PFED"), starts_with("PMED")),
+      recode_missing
+    )
+  )
+```
+
+### 変数の確認
+
+```{r}
+#| eval: true
+# 変数名の一覧（最初の50個）
+names(d) |> head(50)
+
+# 特定の変数の分布を確認
+d |> count(w1学年)
+d |> count(w1子ども性別)
+```
+
+
+# 基礎編
+
+以降の分析では，準備編で読み込んだデータ`d`を使用する．`d`は「子どもの生活と学びに関する親子調査」のWave 1からWave 5のデータを結合したものである．
+
+## パイプ演算子
+
+パイプ演算子`|>`を使うと，処理の流れが分かりやすくなる．
+
+```{r}
+# 通常の書き方
+round(mean(d$vocab_w2_g3, 
+           na.rm = TRUE), digits = 1)
+
+# パイプを使った書き方
+d$vocab_w2_g3 |> 
+  mean(na.rm = TRUE) |> 
+  round(digits = 1)
+```
+
+パイプの左側の結果が，右側の関数の第1引数に渡される．
+
+
+## データの確認
+
+データを読み込んだら，まず全体の概要を確認する．
+
+```{r}
+#| eval: false
+# glimpse()でデータの構造を確認（変数が多いため出力は省略）
+glimpse(d)
+```
+
+```{r}
+# 先頭6行
+head(d)
+
+# 要約統計量（一部の変数のみ）
+d |> select(PanelID, w1子ども性別, vocab_w2_g3, vocab_w2_g9) |> summary()
+```
+
+### 識別変数の重複チェック
+
+パネルデータでは識別変数（ID）が一意であることを確認する．重複があると，データの結合や集計で問題が生じる．
+
+```{r}
+# 識別変数の重複チェック
+sum(duplicated(d$PanelID))  # 0なら重複なし
+
+# 重複があった場合，該当レコードを確認
+# d |> filter(duplicated(PanelID) | duplicated(PanelID, fromLast = TRUE))
+```
+
+::: {.callout-tip}
+## データチェックの考え方
+すべての変数を事前にチェックするのは現実的ではない．実務では：
+
+1. **読み込み直後**：行数・列数，識別変数の重複を確認
+2. **分析に使う変数を選んだ後**：その変数の分布・欠損・値ラベルを確認（`count()`，`summary()`）
+3. **変数作成後**：変換前後の対応を確認（クロス表）
+
+「分析の大半はデータの前処理と変数作成である」という意識を持ち，各段階で確認を怠らないことが重要．
+:::
+
+
+## 変数へのアクセス
+
+データフレーム内の変数には`$`でアクセスする．
+
+```{r}
+# 語彙力スコアという変数
+d$vocab_w2_g3 |> head(50)
+
+# 語彙力スコアの平均値
+mean(d$vocab_w2_g3, na.rm = TRUE)
+```
+
+
+## dplyrによるデータ操作
+
+`dplyr`パッケージはデータ操作の中心となるパッケージである．以下の4つの関数を覚えれば，ほとんどのデータ操作ができる．
+
+| 関数 | 役割 |
+|------|------|
+| `filter()` | 行を抽出する（条件に合う行だけ残す） |
+| `select()` | 列を選択する（必要な変数だけ残す） |
+| `mutate()` | 新しい列を作成する（変数の追加・変換） |
+| `summarise()` | 集計する（平均・合計などを計算） |
+
+::: {.callout-tip}
+## dplyrの基本的な考え方
+- 第1引数は常にデータフレーム
+- パイプ `|>` で繋げて処理を連鎖できる
+- 元のデータは変更されない（結果を保存するには `<-` で代入）
+:::
+
+### count()：度数を数える
+
+```{r}
+# 性別の度数
+d |> count(w1子ども性別)
+
+# 学年の度数
+d |> count(w1学年)
+
+# クロス集計
+d |> count(w1子ども性別, w1学年)
+```
+
+### filter()：行の抽出
+
+条件に合致する行だけを残す．
+
+```{r}
+# 男子（性別=1）のみ
+d |> filter(w1子ども性別 == 1)
+
+# 中学生（学年7-9）のみ
+d |> filter(w1学年 %in% 7:9)
+
+# 語彙力スコアが60以上
+d |> filter(vocab_w2_g3 >= 60)
+```
+
+複数の条件を組み合わせることもできる．
+
+```{r}
+# AND条件：& または , で区切る
+d |> filter(w1子ども性別 == 1, w1学年 %in% 7:9)  # 男子かつ中学生
+
+# OR条件：| を使う
+d |> filter(w1学年 == 1 | w1学年 == 4)  # 小1または小4
+
+# 欠損値を除外
+d |> filter(!is.na(vocab_w2_g3))  # 語彙力スコアが欠損でない
+```
+
+::: {.callout-note}
+## filter()でよく使う比較演算子
+- `==`：等しい，`!=`：等しくない
+- `>`, `>=`, `<`, `<=`：大小比較
+- `%in%`：いずれかに一致（複数値）
+- `is.na()`：欠損値かどうか
+- `&`：かつ（AND），`|`：または（OR）
+:::
+
+### select()：列の選択
+
+必要な変数（列）だけを選ぶ．
+
+```{r}
+# 特定の列を選択
+d |> select(PanelID, w1子ども性別, vocab_w2_g3)
+
+# 特定のパターンで始まる列を選択
+d |> select(PanelID, starts_with("w1"))
+```
+
+列の除外やヘルパー関数も使える．
+
+```{r}
+# 特定の列を除外（-をつける）
+d |> select(-w1学年, -w1子ども性別)
+
+# 複数のヘルパー関数を組み合わせる
+d |> select(PanelID, ends_with("性別"), contains("vocab"))
+```
+
+::: {.callout-note}
+## select()のヘルパー関数
+- `starts_with("x")`：「x」で始まる列
+- `ends_with("x")`：「x」で終わる列
+- `contains("x")`：「x」を含む列
+- `matches("正規表現")`：正規表現にマッチする列
+- `where(is.numeric)`：数値型の列すべて
+:::
+
+### mutate()：新しい変数の作成
+
+既存の変数から新しい変数を作成する．
+
+```{r}
+# 新しい変数を作成（標準化）
+d <- d |>
+  mutate(
+    vocab_z = (vocab_w2_g3 -
+                 mean(vocab_w2_g3, na.rm = TRUE)) /
+      sd(vocab_w2_g3, na.rm = TRUE)
+  )
+
+d |> select(PanelID, vocab_w2_g3, vocab_z) |>
+  drop_na(vocab_z)  # vocab_zに欠損がないケースのみを表示
+```
+
+複数の変数を同時に作成することもできる．
+
+```{r}
+# 複数の変数を一度に作成
+d <- d |>
+  mutate(
+    vocab_centered = vocab_w2_g3 - mean(vocab_w2_g3, na.rm = TRUE),  # 中心化
+    vocab_log = log(vocab_w2_g3 + 1)  # 対数変換
+  )
+```
+
+`across()` を使うと，複数の変数に同じ処理を一括で適用できる．
+
+```{r}
+# across()：複数変数に同じ処理を適用
+d <- d |>
+  mutate(across(
+    c(vocab_w2_g3, vocab_w5_g9),           # 対象の変数
+    \(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE),  # 標準化の処理
+    .names = "{.col}_z"                     # 新しい変数名（元の名前_z）
+  ))
+
+d |> select(PanelID, vocab_w2_g3, vocab_w2_g3_z, vocab_w5_g9, vocab_w5_g9_z) |>
+  drop_na(vocab_w2_g3_z)
+```
+
+::: {.callout-tip}
+## mutate()のポイント
+- 同じ変数名を指定すると上書きされる
+- 作成した変数を同じ`mutate()`内ですぐ使える
+- 元のデータは変わらない（結果を `<-` で代入して保存）
+- `across()` で複数変数に同じ処理を一括適用できる
+:::
+
+### 変数のリコード：case_match()とcase_when()
+
+::: {.callout-tip}
+## case_match vs case_when
+- `case_match()`：特定の値を別の値に置き換える（シンプル）
+- `case_when()`：条件式を使った柔軟な分岐が可能
+:::
+
+```{r}
+# case_match：値の直接的な置換（性別）
+d <- d |> 
+  mutate(
+    sex = coalesce(w1子ども性別,
+                   w2子ども性別,
+                   w3子ども性別,
+                   w4子ども性別,
+                   w5子ども性別,
+                   w6子ども性別,
+                   w7子ども性別))
+d <- d |> 
+  mutate(
+    sex = case_match(
+      sex,
+      1 ~ "男子",
+      2 ~ "女子",
+      .default = NA
+    )
+  )
+d |> count(sex)
+```
+
+```{r}
+# case_match：父学歴の再カテゴリ化
+d <- d |> 
+  mutate(
+    PFED = coalesce(zap_labels(PFED15), 
+                    zap_labels(PFED16), 
+                    zap_labels(PFED17), 
+                    zap_labels(PFED18), 
+                    zap_labels(PFED19), 
+                    zap_labels(PFED20),
+                    zap_labels(PFED21))
+  )
+
+d <- d |> 
+  mutate(f_edu = case_match(
+    PFED,
+      c(1, 2) ~ "中学・高校",
+      c(3, 4) ~ "専門・短大",
+      c(5, 6) ~ "大学・院",
+      .default = NA
+    )
+  )
+
+# factorあるいはfct_relevelで水準に順位をつけたほうがよい
+d <- d |> 
+  mutate(f_edu = fct_relevel(f_edu, "中学・高校", "専門・短大"))
+
+
+# 母親の学歴
+d <- d |> 
+  mutate(
+    PMED = coalesce(zap_labels(PMED15),
+                    zap_labels(PMED16), 
+                    zap_labels(PMED17), 
+                    zap_labels(PMED18), 
+                    zap_labels(PMED19), 
+                    zap_labels(PMED20), 
+                    zap_labels(PMED21)))
+d <- d |> 
+  mutate(m_edu = case_match(
+      PMED,
+      c(1, 2) ~ "中学・高校",
+      c(3, 4) ~ "専門・短大",
+      c(5, 6) ~ "大学・院",
+      .default = NA
+    )
+  )
+
+# factorあるいはfct_relevelで水準に順位をつけたほうがよい
+d <- d |>
+  mutate(m_edu = fct_relevel(m_edu, "中学・高校", "専門・短大"))
+
+
+# 父親の職種（W1の値を使用）
+d <- d |>
+  mutate(
+    f_occ = case_match(
+      zap_labels(PFworkjob15),
+      1 ~ "事務・営業",
+      2 ~ "販売・サービス",
+      3 ~ "技能・労務",
+      4 ~ "保安",
+      5 ~ "運輸",
+      6 ~ "農林漁業",
+      7 ~ "専門・技術",
+      8 ~ "管理職",
+      c(9, 10) ~ NA,
+      .default = NA
+    ),
+    f_occ = factor(f_occ)
+  )
+
+# 変換前後の対応を確認
+d |> count(PFworkjob15, f_occ)
+
+# 母親の職種（W1の値を使用）
+d <- d |>
+  mutate(
+    m_occ = case_match(
+      zap_labels(PMworkjob15),
+      1 ~ "事務・営業",
+      2 ~ "販売・サービス",
+      3 ~ "技能・労務",
+      4 ~ "保安",
+      5 ~ "運輸",
+      6 ~ "農林漁業",
+      7 ~ "専門・技術",
+      8 ~ "管理職",
+      c(9, 10) ~ NA,
+      .default = NA
+    ),
+    m_occ = factor(m_occ)
+  )
+
+# 変換前後の対応を確認
+d |> count(PMworkjob15, m_occ)
+
+
+# 父親の就業形態（W1の値を使用）
+d <- d |>
+  mutate(
+    f_emp = case_match(
+      zap_labels(PFworktype15),
+      1 ~ "正規雇用",
+      c(2, 3, 4) ~ "非正規雇用",
+      5 ~ "自営業",
+      c(6, 8) ~ NA,
+      7 ~ "無職",
+      .default = NA
+    ),
+    # 非該当（8888）は父親なしとして別カテゴリに
+    f_emp = if_else(zap_labels(PFworktype15) == 8888, "父親なし", f_emp),
+    f_emp = factor(f_emp)
+  )
+
+# 変換前後の対応を確認
+d |> count(PFworktype15, f_emp)
+
+# 母親の就業形態（W1の値を使用）
+d <- d |>
+  mutate(
+    m_emp = case_match(
+      zap_labels(PMworktype15),
+      1 ~ "正規雇用",
+      c(2, 3, 4) ~ "非正規雇用",
+      5 ~ "自営業",
+      c(6, 8) ~ NA,
+      7 ~ "無職・専業主婦",
+      .default = NA
+    ),
+    # 非該当（8888）は母親なしとして別カテゴリに
+    m_emp = if_else(zap_labels(PMworktype15) == 8888, "母親なし", m_emp),
+    m_emp = factor(m_emp)
+  )
+
+# 変換前後の対応を確認
+d |> count(PMworktype15, m_emp)
+
+
+# 自宅の本の冊数（W2で測定）
+d <- d |>
+  mutate(
+    # カテゴリ変数
+    n_books = case_match(
+      zap_labels(ds0000000609_w2p),
+      1 ~ "9冊以下",
+      2 ~ "10〜29冊",
+      3 ~ "30〜49冊",
+      4 ~ "50〜99冊",
+      5 ~ "100〜199冊",
+      6 ~ "200〜499冊",
+      7 ~ "500冊以上",
+      .default = NA
+    ),
+    n_books = fct_relevel(n_books,
+                          "9冊以下", "10〜29冊", "30〜49冊",
+                          "50〜99冊", "100〜199冊", "200〜499冊"),
+    # 連続変数（各カテゴリの中間値を代入）
+    n_books_num = case_match(
+      zap_labels(ds0000000609_w2p),
+      1 ~ 5,
+      2 ~ 20,
+      3 ~ 40,
+      4 ~ 75,
+      5 ~ 150,
+      6 ~ 350,
+      7 ~ 500,
+      .default = NA
+    )
+  )
+
+# 変換前後の対応を確認
+d |> count(ds0000000609_w2p, n_books, n_books_num)
+```
+
+::: {.callout-warning}
+## カテゴリ変数の連続変数化について
+本の冊数のようにカテゴリで測定された変数を連続変数として扱う場合，以下の点に注意が必要である：
+
+- 各カテゴリの中間値（代表値）を代入しているが，実際の分布は不明
+- 「500冊以上」のような開放カテゴリは特に不確実性が高い
+- 線形の関係を仮定することの妥当性は検討が必要
+
+カテゴリ変数（`n_books`）をダミー変数として使えば各カテゴリの効果を正確に推定できる．連続変数（`n_books_num`）は`splines::ns()`で非線形性をモデル化する際に使用できる．
+:::
+
+::: {.callout-note}
+## 社会経済的地位（SES）の指標
+社会経済的地位を測定する代表的な変数として以下がある：
+
+- **収入**：世帯年収（`income__2015`〜`income__2021`）
+- **学歴**：父親・母親の最終学歴（`f_edu`, `m_edu`）
+- **職業**：父親・母親の職種（`f_occ`, `m_occ`）
+- **就業形態**：父親・母親の就業形態（`f_emp`, `m_emp`）
+- **文化資本**：自宅の本の冊数（`n_books`, `n_books_num`）
+
+これらは相互に関連しており，どれを用いるかは分析の目的による．
+:::
+
+
+### 職業・就業形態の組み合わせカテゴリ（EGP分類を参考に）
+
+職業と就業形態を組み合わせた社会階層カテゴリを作成する．EGP（Erikson-Goldthorpe-Portocarero）分類を参考に，利用可能な変数から簡易的な階層分類を試みる．
+
+```{r}
+# 父親の職業階層（EGP分類を参考にした簡易版）
+d <- d |>
+  mutate(
+    f_class = case_when(
+      # 専門・管理職（正規雇用または自営）
+      f_occ == "管理職" & f_emp %in% c("正規雇用", "自営業") ~ "専門・管理職",
+      f_occ == "専門・技術" & f_emp %in% c("正規雇用", "自営業") ~ "専門・管理職",
+      # 事務・販売職（正規雇用）
+      f_occ == "事務・営業" & f_emp == "正規雇用" ~ "事務・販売職",
+      f_occ == "販売・サービス" & f_emp == "正規雇用" ~ "事務・販売職",
+      # 自営業（専門・管理職以外の自営，農林漁業の自営を含む）
+      f_emp == "自営業" ~ "自営業",
+      f_occ == "農林漁業" & f_emp == "自営業" ~ "自営業",
+      # マニュアル（技能・運輸・保安で正規雇用，農林漁業の正規雇用を含む）
+      f_occ %in% c("技能・労務", "運輸", "保安") & f_emp == "正規雇用" ~ "マニュアル",
+      f_occ == "農林漁業" & f_emp == "正規雇用" ~ "マニュアル",
+      # 非正規雇用（農林漁業の非正規を含む）
+      f_emp == "非正規雇用" ~ "非正規雇用",
+      # 無職
+      f_emp == "無職" ~ "無職",
+      # 父親なし
+      f_emp == "父親なし" ~ "父親なし",
+      .default = NA
+    ),
+    f_class = factor(f_class, levels = c(
+      "専門・管理職", "事務・販売職", "自営業",
+      "マニュアル", "非正規雇用", "無職", "父親なし"
+    ))
+  )
+
+# 分布を確認
+d |> count(f_class)
+
+# 職業×就業形態の組み合わせを確認
+d |> count(f_occ, f_emp, f_class) |> print(n = 50)
+```
+
+```{r}
+# 母親の職業階層
+d <- d |>
+  mutate(
+    m_class = case_when(
+      # 専門・管理職
+      m_occ == "管理職" & m_emp %in% c("正規雇用", "自営業") ~ "専門・管理職",
+      m_occ == "専門・技術" & m_emp %in% c("正規雇用", "自営業") ~ "専門・管理職",
+      # 事務・販売職（正規雇用のみ）
+      m_occ == "事務・営業" & m_emp == "正規雇用" ~ "事務・販売職",
+      m_occ == "販売・サービス" & m_emp == "正規雇用" ~ "事務・販売職",
+      # 自営業（農林漁業の自営を含む）
+      m_emp == "自営業" ~ "自営業",
+      m_occ == "農林漁業" & m_emp == "自営業" ~ "自営業",
+      # マニュアル（技能・運輸・保安で正規雇用，農林漁業の正規雇用を含む）
+      m_occ %in% c("技能・労務", "運輸", "保安") & m_emp == "正規雇用" ~ "マニュアル",
+      m_occ == "農林漁業" & m_emp == "正規雇用" ~ "マニュアル",
+      # 非正規雇用（農林漁業の非正規を含む）
+      m_occ == "農林漁業" & m_emp == "非正規雇用" ~ "非正規雇用",
+      # 無職
+      m_emp == "無職・専業主婦" ~ "無職",
+      # 母親なし
+      m_emp == "母親なし" ~ "母親なし",
+      .default = NA
+    ),
+    m_class = factor(m_class, levels = c(
+      "専門・管理職", "事務・販売職", "自営業",
+      "マニュアル", "非正規雇用", "無職", "母親なし"
+    ))
+  )
+
+# 分布を確認
+d |> count(m_class)
+```
+
+::: {.callout-note}
+## EGP分類について
+EGP（Erikson-Goldthorpe-Portocarero）分類は国際比較に用いられる職業階層分類で，雇用関係（employment relationship）に基づく．本来は詳細な職業コードと雇用上の地位から分類するが，ここでは利用可能な変数から簡易的に作成している．厳密なEGP分類が必要な場合は，SSM調査などより詳細な職業情報を持つデータの利用を検討する．
+:::
+
+
+::: {.callout-tip}
+# `coalesce()`について
+`coalesce()`は，複数の変数から最初の非欠損値を取得する．性別や親学歴のように時間で変化しない（または変化しにくい）変数は，どのWaveで回答されても同じ値のはずなので，この方法で欠損を補完できる．
+:::
+
+
+```{r}
+# 各Waveの年度
+# Wave1: 2015, Wave2: 2016, Wave3: 2017, Wave4: 2018,
+# Wave5: 2019, Wave6: 2020, Wave7: 2021
+
+# 在学中（学年1-12）の最初の観測から出生年度を計算
+d <- d |> 
+  mutate(
+    # 在学中（1-12）のみを有効な学年として扱う
+    w1学年_valid = if_else(w1学年 %in% 1:12, w1学年, NA),
+    w2学年_valid = if_else(w2学年 %in% 1:12, w2学年, NA),
+    w3学年_valid = if_else(w3学年 %in% 1:12, w3学年, NA),
+    w4学年_valid = if_else(w4学年 %in% 1:12, w4学年, NA),
+    w5学年_valid = if_else(w5学年 %in% 1:12, w5学年, NA),
+    w6学年_valid = if_else(w6学年 %in% 1:12, w6学年, NA),
+    w7学年_valid = if_else(w7学年 %in% 1:12, w7学年, NA),
+    
+    # 最初に観測された有効な学年
+    first_grade = coalesce(w1学年_valid, w2学年_valid, w3学年_valid, 
+                           w4学年_valid, w5学年_valid, w6学年_valid, 
+                           w7学年_valid),
+    # どのWaveで最初に有効な学年が観測されたか
+    first_wave = case_when(
+      !is.na(w1学年_valid) ~ 2015,
+      !is.na(w2学年_valid) ~ 2016,
+      !is.na(w3学年_valid) ~ 2017,
+      !is.na(w4学年_valid) ~ 2018,
+      !is.na(w5学年_valid) ~ 2019,
+      !is.na(w6学年_valid) ~ 2020,
+      !is.na(w7学年_valid) ~ 2021,
+      .default = NA
+    ),
+    # 出生年度を計算
+    birth_year = first_wave - first_grade - 6
+  ) |> 
+  # 作業用変数を削除
+  select(-ends_with("_valid"))
+
+d |> 
+  count(first_wave)
+d |> 
+  count(first_grade)
+d |> 
+  count(birth_year)
+```
+
+
+```{r}
+# case_when：条件による分岐
+d <- d |> 
+  mutate(
+    vocab_cat = case_when(
+      vocab_w2_g3 >= 60 ~ "高",
+      vocab_w2_g3 >= 40 ~ "中",
+      vocab_w2_g3 < 40 ~ "低",
+      .default = NA
+    )
+  )
+d |> count(vocab_cat)
+```
+
+::: {.callout-tip}
+## .defaultの使い分け
+- `.default = NA`：条件に合わないものは欠損値にしたいとき
+- `.default = 元の変数`：一部だけ変更し，他は元のままにしたいとき
+- `.default = "その他"`：条件に合わないものをまとめたいとき
+:::
+
+
+### 時間とともに変化する変数
+
+```{r}
+# ある年における学年（出生年度から計算）
+d <- d |> 
+  mutate(
+    grade__2015 = 2015 - birth_year - 6,
+    grade__2016 = 2016 - birth_year - 6,
+    grade__2017 = 2017 - birth_year - 6,
+    grade__2018 = 2018 - birth_year - 6,
+    grade__2019 = 2019 - birth_year - 6,
+    grade__2020 = 2020 - birth_year - 6,
+    grade__2021 = 2021 - birth_year - 6
+  )
+
+# 確認
+d |> count(birth_year, grade__2015, grade__2021)
+```
+
+
+
+```{r}
+# 学習塾へ
+# 通塾変数の整理（年度ベース，0/1に変換）
+d <- d |> 
+  mutate(
+    juku__2015 = case_match(ds0000000121_w1p,
+                            1 ~ 1,  # 行っている
+                            2 ~ 0,  # 行っていない
+                            .default = NA),
+    juku__2016 = case_match(ds0000000121_w2p,
+                            1 ~ 1,
+                            2 ~ 0,
+                            .default = NA),
+    juku__2017 = case_match(ds0000000121_w3p,
+                            1 ~ 1,
+                            2 ~ 0,
+                            .default = NA),
+    juku__2018 = case_match(ds0000000121_w4p,
+                            1 ~ 1,
+                            2 ~ 0,
+                            .default = NA),
+    juku__2019 = case_match(ds0000000121_w5p,
+                            1 ~ 1,
+                            2 ~ 0,
+                            .default = NA),
+    juku__2020 = case_match(ds0000000121_w6p,
+                            1 ~ 1,
+                            2 ~ 0,
+                            .default = NA),
+    juku__2021 = case_match(ds0000000121_w7p,
+                            1 ~ 1,
+                            2 ~ 0,
+                            .default = NA)
+  )
+
+# 確認
+d |> count(ds0000000121_w1p, juku__2015)
+```
+
+
+```{r}
+# 年収の整理（年度ベースの変数名）
+d <- d |> 
+  mutate(
+    income__2015 = if_else(ds0000000052_w1p %in% 1:10, 
+                           as.numeric(ds0000000052_w1p), NA),
+    income__2016 = if_else(ds0000000052_w2p %in% 1:10, 
+                           as.numeric(ds0000000052_w2p), NA),
+    income__2017 = if_else(ds0000000052_w3p %in% 1:10, 
+                           as.numeric(ds0000000052_w3p), NA),
+    income__2018 = if_else(ds0000000052_w4p %in% 1:10, 
+                           as.numeric(ds0000000052_w4p), NA),
+    income__2019 = if_else(ds0000000052_w5p %in% 1:10, 
+                           as.numeric(ds0000000052_w5p), NA),
+    income__2020 = if_else(ds0000000052_w6p %in% 1:10, 
+                           as.numeric(ds0000000052_w6p), NA),
+    income__2021 = if_else(ds0000000052_w7p %in% 1:10, 
+                           as.numeric(ds0000000052_w7p), NA)
+  )
+```
+
+
+::: {.callout-tip}
+# 年度ベースの変数名の利点
+
+birth_yearと組み合わせて年齢が計算しやすい（年度 - birth_year）
+pivot_longer()で変換後，year変数がそのまま年度になる
+直感的に「いつのデータか」が分かりやすい
+アンダースコア2つ（__）で区切ることで，names_sep = "__"での分割が容易
+:::
+
+```{r}
+d <- d |> 
+  mutate(across(income__2015:income__2021,
+                ~ case_match(.x,
+      1 ~ 100,
+      2 ~ 250,
+      3 ~ 350,
+      4 ~ 450,
+      5 ~ 550,
+      6 ~ 700,
+      7 ~ 900,
+      8 ~ 1250,
+      9 ~ 1750,
+      10 ~ 2500,  # 上限なしのため仮の値
+      .default = NA
+    )
+  ))
+
+d |> count(income__2015)
+d |> count(income__2021)
+```
+
+
+```{r}
+# 将来の希望進学段階（子ども）→ 教育年数に変換
+# 値ラベル: 1=中学まで(9年), 2=高校まで(12年), 3=専門学校まで(14年),
+#          4=短大まで(14年), 5=大学まで(16年), 6=大学院まで(18年)
+# 7=その他, 8=まだ決めていない は欠損扱い
+
+d <- d |>
+  mutate(
+    # 教育年数に変換
+    edu_asp__2015 = case_match(as.numeric(ds0000000198_w1c),
+                               1 ~ 9, 2 ~ 12, 3 ~ 14, 4 ~ 14, 5 ~ 16, 6 ~ 18,
+                               .default = NA),
+    edu_asp__2016 = case_match(as.numeric(ds0000000198_w2c),
+                               1 ~ 9, 2 ~ 12, 3 ~ 14, 4 ~ 14, 5 ~ 16, 6 ~ 18,
+                               .default = NA),
+    edu_asp__2017 = case_match(as.numeric(ds0000000198_w3c),
+                               1 ~ 9, 2 ~ 12, 3 ~ 14, 4 ~ 14, 5 ~ 16, 6 ~ 18,
+                               .default = NA),
+    edu_asp__2018 = case_match(as.numeric(ds0000000198_w4c),
+                               1 ~ 9, 2 ~ 12, 3 ~ 14, 4 ~ 14, 5 ~ 16, 6 ~ 18,
+                               .default = NA),
+    edu_asp__2019 = case_match(as.numeric(ds0000000198_w5c),
+                               1 ~ 9, 2 ~ 12, 3 ~ 14, 4 ~ 14, 5 ~ 16, 6 ~ 18,
+                               .default = NA),
+    edu_asp__2020 = case_match(as.numeric(ds0000000198_w6c),
+                               1 ~ 9, 2 ~ 12, 3 ~ 14, 4 ~ 14, 5 ~ 16, 6 ~ 18,
+                               .default = NA),
+    edu_asp__2021 = case_match(as.numeric(ds0000000198_w7c),
+                               1 ~ 9, 2 ~ 12, 3 ~ 14, 4 ~ 14, 5 ~ 16, 6 ~ 18,
+                               .default = NA),
+
+    # 大学進学希望ダミー（大学・大学院=1, それ以外=0）
+    univ_asp__2015 = case_when(ds0000000198_w1c %in% 5:6 ~ 1,
+                               ds0000000198_w1c %in% 1:4 ~ 0,
+                               .default = NA),
+    univ_asp__2016 = case_when(ds0000000198_w2c %in% 5:6 ~ 1,
+                               ds0000000198_w2c %in% 1:4 ~ 0,
+                               .default = NA),
+    univ_asp__2017 = case_when(ds0000000198_w3c %in% 5:6 ~ 1,
+                               ds0000000198_w3c %in% 1:4 ~ 0,
+                               .default = NA),
+    univ_asp__2018 = case_when(ds0000000198_w4c %in% 5:6 ~ 1,
+                               ds0000000198_w4c %in% 1:4 ~ 0,
+                               .default = NA),
+    univ_asp__2019 = case_when(ds0000000198_w5c %in% 5:6 ~ 1,
+                               ds0000000198_w5c %in% 1:4 ~ 0,
+                               .default = NA),
+    univ_asp__2020 = case_when(ds0000000198_w6c %in% 5:6 ~ 1,
+                               ds0000000198_w6c %in% 1:4 ~ 0,
+                               .default = NA),
+    univ_asp__2021 = case_when(ds0000000198_w7c %in% 5:6 ~ 1,
+                               ds0000000198_w7c %in% 1:4 ~ 0,
+                               .default = NA)
+  )
+
+# 確認
+d |> count(ds0000000198_w1c, edu_asp__2015, univ_asp__2015)
+```
+
+::: {.callout-tip}
+## 将来の希望進学段階の変数
+
+- `edu_asp__年度`: 希望進学段階を教育年数に変換（中学9年〜大学院18年）
+- `univ_asp__年度`: 大学進学希望ダミー（大学・大学院希望=1, その他=0）
+
+| 元の値 | 進学段階 | 教育年数 |
+|--------|----------|----------|
+| 1 | 中学まで | 9年 |
+| 2 | 高校まで | 12年 |
+| 3 | 専門学校まで | 14年 |
+| 4 | 短大まで | 14年 |
+| 5 | 大学まで | 16年 |
+| 6 | 大学院まで | 18年 |
+
+「その他」「まだ決めていない」は分析上の解釈が難しいため欠損として処理している．
+:::
+
+
+### summarise()：集計
+
+```{r}
+# 全体の平均と標準偏差
+d |> 
+  summarise(
+    mean_vocab = mean(vocab_w2_g3, na.rm = TRUE),
+    sd_vocab = sd(vocab_w2_g3, na.rm = TRUE),
+    n = sum(!is.na(vocab_w2_g3))
+  )
+
+# グループ別の集計（.by引数を使用）
+d |>
+  summarise(
+    mean_vocab = mean(vocab_w2_g3, na.rm = TRUE),
+    sd_vocab = sd(vocab_w2_g3, na.rm = TRUE),
+    n = sum(!is.na(vocab_w2_g3)),
+    .by = sex
+  )
+```
+
+`across()` を使うと，複数の変数の集計を一括で行える．
+
+```{r}
+# across()：複数変数の平均を一括計算
+d |>
+  summarise(across(
+    c(vocab_w2_g3, vocab_w5_g9),           # 対象の変数
+    list(mean = \(x) mean(x, na.rm = TRUE),
+         sd = \(x) sd(x, na.rm = TRUE)),   # 適用する関数（名前付きリスト）
+    .names = "{.col}_{.fn}"                # 変数名_関数名
+  ))
+
+# グループ別に複数変数を集計
+d |>
+  summarise(
+    across(c(vocab_w2_g3, vocab_w5_g9),
+           \(x) mean(x, na.rm = TRUE)),
+    .by = sex
+  )
+```
+
+::: {.callout-warning}
+## 欠損値への対応
+`mean()`や`sd()`は，データに欠損値（`NA`）が含まれると結果が`NA`になる．`na.rm = TRUE`を指定することで欠損値を除いて計算する．また，`n()`は欠損値を含む全ケース数を返すため，実際に計算に使用されたケース数を知りたい場合は`sum(!is.na(変数名))`を使用する．
+:::
+
+
+## 自作関数の作成
+
+繰り返し使う処理は，自作関数にまとめると便利である．
+
+### 関数の基本構造
+
+```r
+関数名 <- function(引数1, 引数2, ...) {
+  # 処理内容
+  return(結果)  # returnは省略可（最後の式が返される）
+}
+```
+
+### 95%信頼区間付きの記述統計関数
+
+記述統計と信頼区間を一度に計算する関数を作成する．
+
+```{r}
+# 95%信頼区間付きの記述統計を計算する関数
+# データフレームと変数名を受け取る（tidyverse風）
+desc_with_ci <- function(data, var) {
+  data |>
+    dplyr::summarise(
+      Mean = mean({{ var }}, na.rm = TRUE),
+      SD = sd({{ var }}, na.rm = TRUE),
+      n = sum(!is.na({{ var }})),
+      SE = SD / sqrt(n),
+      CI_lower = Mean + qt(0.025, df = n - 1) * SE,
+      CI_upper = Mean + qt(0.975, df = n - 1) * SE
+    )
+}
+
+# 使用例
+desc_with_ci(d, vocab_w2_g3)
+```
+
+::: {.callout-note}
+## `qt()`による信頼区間の計算
+上記のコードで使われている`qt(0.025, df = n - 1)`と`qt(0.975, df = n - 1)`は，t分布の分位関数である．自由度`n - 1`のt分布において，累積確率が0.025と0.975になる点（両側5%の臨界値）を返す．サンプルサイズが大きい場合，これらの値は正規分布の±1.96に近づく．
+:::
+
+::: {.callout-tip}
+## `{{ }}`（curly-curly）について
+`{{ var }}`は，関数の引数として渡された変数名をそのまま`dplyr`関数内で使えるようにする記法である．これにより`desc_with_ci(d, vocab_w2_g3)`のように，クォートなしで変数名を指定できる．
+:::
+
+### グループ別に適用する
+
+`.by`引数を追加すれば，グループ別の集計も簡単にできる．
+
+```{r}
+# グループ別に対応した関数
+desc_with_ci_by <- function(data, var, by = NULL) {
+  data |>
+    dplyr::summarise(
+      Mean = mean({{ var }}, na.rm = TRUE),
+      SD = sd({{ var }}, na.rm = TRUE),
+      n = sum(!is.na({{ var }})),
+      SE = SD / sqrt(n),
+      CI_lower = Mean + qt(0.025, df = n - 1) * SE,
+      CI_upper = Mean + qt(0.975, df = n - 1) * SE,
+      .by = {{ by }}
+    )
+}
+
+# 父親の学歴別に適用
+d |>
+  drop_na(f_edu) |>
+  desc_with_ci_by(vocab_w2_g3, by = f_edu)
+```
+
+::: {.callout-tip}
+## 自作関数の利点
+- 同じ処理を何度も書かなくてよい
+- コードが読みやすくなる
+- 修正が一箇所で済む（DRY原則：Don't Repeat Yourself）
+:::
+
+
+## 記述統計
+
+### 量的変数の要約
+
+```{r}
+# 語彙力スコアの記述統計
+d |> 
+  summarise(
+    Mean = mean(vocab_w2_g3, na.rm = TRUE),
+    SD = sd(vocab_w2_g3, na.rm = TRUE),
+    Min = min(vocab_w2_g3, na.rm = TRUE),
+    Max = max(vocab_w2_g3, na.rm = TRUE),
+    Median = median(vocab_w2_g3, na.rm = TRUE),
+    n = sum(!is.na(vocab_w2_g3))
+  )
+```
+
+### グループ別の記述統計
+
+```{r}
+# 性別ごとの記述統計
+d |> 
+  summarise(
+    Mean = mean(vocab_w2_g3, na.rm = TRUE),
+    SD = sd(vocab_w2_g3, na.rm = TRUE),
+    n = sum(!is.na(vocab_w2_g3)),
+    .by = sex
+  )
+
+# 親の学歴別の記述統計
+d |> 
+  summarise(
+    Mean = mean(vocab_w2_g3, na.rm = TRUE),
+    SD = sd(vocab_w2_g3, na.rm = TRUE),
+    n = sum(!is.na(vocab_w2_g3)),
+    .by = f_edu
+  )
+
+# 親の学歴別の記述統計
+d |> 
+  summarise(
+    Mean = mean(income__2015, na.rm = TRUE),
+    SD = sd(income__2015, na.rm = TRUE),
+    n = sum(!is.na(income__2015)),
+    .by = f_edu
+  ) |> 
+  arrange(f_edu)
+
+# 親の学歴別の記述統計
+d |> 
+  summarise(
+    Mean = mean(income__2015, na.rm = TRUE),
+    SD = sd(income__2015, na.rm = TRUE),
+    n = sum(!is.na(income__2015)),
+    .by = c(f_edu, m_edu)
+  ) |> 
+  arrange(f_edu, m_edu)
+```
+
+
+## 度数分布表
+
+`janitor`パッケージの`tabyl()`が便利である．
+
+```{r}
+# 性別の度数分布
+d |> tabyl(sex)
+
+# 父親の学歴の度数分布
+d |> tabyl(f_edu)
+```
+
+
+## 相関係数
+
+2つの連続変数間の線形な関連の強さを表す指標である．-1から1の値をとり，絶対値が大きいほど関連が強い．
+
+```{r}
+# 2変数間の相関係数
+cor(d$vocab_w2_g3, d$vocab_w2_g9, use = "complete.obs")
+```
+
+::: {.callout-note}
+## use引数について
+`cor()`関数の`use`引数は欠損値の扱いを指定する．
+
+- `"everything"`: 欠損があると`NA`を返す（デフォルト）
+- `"complete.obs"`: 両方の変数で欠損のないケースのみ使用
+- `"pairwise.complete.obs"`: 変数のペアごとに欠損のないケースを使用
+:::
+
+### 相関係数の検定
+
+相関係数が統計的に有意かどうかを検定する．
+
+```{r}
+# 相関係数の検定
+cor.test(d$vocab_w2_g3, d$vocab_w2_g9)
+```
+
+### 相関行列
+
+複数の変数間の相関を一度に確認したい場合は，相関行列を作成する．
+
+```{r}
+# 分析に使う変数を選択
+d_cor <- d |>
+  select(vocab_w2_g3, vocab_w2_g9, edu_asp__2016, income__2016) |>
+  drop_na()
+
+# 相関行列
+cor(d_cor)
+```
+
+```{r}
+# 見やすく丸める
+cor(d_cor) |> round(2)
+```
+
+### 相関行列の可視化
+
+`corrplot`パッケージを使うと相関行列を視覚的に確認できる．
+
+```{r}
+#| eval: false
+# パッケージのインストール（初回のみ）
+install.packages("corrplot")
+```
+
+```{r}
+library(corrplot)
+corrplot(cor(d_cor), method = "color", type = "upper",
+         addCoef.col = "black", number.cex = 0.8,
+         tl.col = "black", tl.srt = 45)
+```
+
+::: {.callout-tip}
+## 相関係数の解釈
+相関係数はあくまで2変数間の**線形な関連**を表す．
+
+- 因果関係を意味しない
+- 非線形な関連は捉えられない
+- 第3の変数（交絡因子）の影響を受ける
+
+社会科学では，相関係数の絶対値が0.3程度でも「中程度の関連」と解釈されることが多い．
+:::
+
+
+## ggplotによる可視化
+
+`ggplot2`パッケージを使って図を作成する．
+
+::: {.callout-tip}
+## 信頼区間を示すことの重要性
+可視化において**信頼区間（エラーバー）を示すことは非常に重要**である．平均値や回帰係数などの点推定値だけを示すと，推定の不確実性が伝わらない．信頼区間を示すことで：
+
+- 推定値の精度（サンプルサイズや分散の影響）が視覚的に分かる
+- グループ間の差が統計的に有意かどうかの目安になる
+- 読者が結果の解釈を適切に行える
+
+本セクションでは，`geom_errorbar()`や`geom_smooth(se = TRUE)`を使って信頼区間を表示する方法を紹介する．
+
+**注意**：2つのグループの95%信頼区間が重なっていても，その差が統計的に有意でないとは限らない．信頼区間の重複は目安に過ぎず，正確な検定にはt検定や回帰分析を行う必要がある．
+:::
+
+::: {.callout-warning}
+## Macでの日本語表示
+Macでは`ggplot2`の日本語が文字化けすることがある．以下のいずれかで対処できる．
+
+**方法1：テーマで指定**
+
+```r
+theme_set(theme_minimal(base_family = "HiraKakuProN-W3"))
+```
+
+**方法2：個別の図で指定**
+```r
+ggplot(...) +
+  ... +
+  theme_minimal(base_family = "HiraKakuProN-W3")
+```
+
+**方法3：raggパッケージを使用**
+```r
+install.packages("ragg")
+```
+RStudioの設定で「Tools」→「Global Options」→「General」→「Graphics」→「Backend」を「AGG」に変更する．
+:::
+
+ここでは次のようなテーマを設定する．
+
+```{r}
+# MACの場合
+theme_set(theme_minimal(base_family = "HiraKakuProN-W3"))
+# Windowsの場合 #をはずす
+# theme_set(theme_minimal())
+```
+
+
+### ヒストグラム
+
+```{r}
+d |> 
+  ggplot(aes(x = vocab_w2_g3)) +
+  geom_histogram(binwidth = 5, 
+                 fill = "#3E4A89",
+                 color = "white") +
+  labs(x = "語彙力スコア（小3基準偏差値）", 
+       y = "度数", 
+       title = "語彙力スコアの分布")
+```
+
+### 箱ひげ図
+
+```{r}
+d |> 
+  drop_na(sex) |> 
+  ggplot(aes(x = sex, y = vocab_w2_g3)) +
+  geom_boxplot(fill = "#7AD151") +
+  labs(x = "性別", y = "語彙力スコア")
+```
+
+### 棒グラフ
+
+棒グラフには2つの方法がある．
+
+**方法1：geom_bar()（集計前のデータ）**
+
+`geom_bar()`は自動的に度数を集計する．
+
+```{r}
+d |> 
+  drop_na(f_edu) |> 
+  ggplot(aes(x = f_edu)) +
+  geom_bar(fill = "#3E4A89") +
+  labs(x = "父親の学歴", y = "度数")
+```
+
+**方法2：geom_col()（集計後のデータ）**
+
+事前に集計したデータを使う場合は`geom_col()`を使用する．
+
+```{r}
+# 集計
+d_count <- d |> 
+  drop_na(f_edu) |> 
+  count(f_edu)
+d_count
+
+# 棒グラフ
+d_count |> 
+  ggplot(aes(x = f_edu, y = n)) +
+  geom_col(fill = "#3E4A89") +
+  labs(x = "父親の学歴", y = "度数")
+```
+
+
+**平均値と信頼区間の棒グラフ**
+
+集計後のデータを使えば，信頼区間を追加できる．
+
+```{r}
+# 父親の学歴別の平均と信頼区間を集計
+d_summary <- d |> 
+  drop_na(f_edu) |> 
+  summarise(
+    Mean = mean(vocab_w2_g3, na.rm = TRUE),
+    SD = sd(vocab_w2_g3, na.rm = TRUE),
+    n = sum(!is.na(vocab_w2_g3)),
+    SE = SD / sqrt(n),
+    ll = Mean + qt(0.025, df = n - 1) * SE,
+    ul = Mean + qt(0.975, df = n - 1) * SE,
+    .by = f_edu
+  )
+d_summary
+
+# 棒グラフ＋エラーバー
+d_summary |> 
+  ggplot(aes(x = f_edu, y = Mean, ymin = ll, ymax = ul)) +
+  geom_col(fill = "#3E4A89") +
+  geom_errorbar(width = 0.2) +
+  labs(x = "父親の学歴", 
+       y = "語彙力スコア（平均値と95%信頼区間）") 
+```
+
+### 散布図
+
+```{r}
+d |> 
+  ggplot(aes(x = vocab_w2_g3, 
+             y = vocab_w2_g9)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(x = "語彙力スコア", y = "読解力スコア") 
+```
+
+### グループ別の図
+
+```{r}
+d |>
+  drop_na(sex) |>
+  ggplot(aes(x = vocab_w2_g3,
+             y = vocab_w2_g9,
+             color = sex, shape = sex)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, linetype = "solid") +
+  labs(x = "語彙力スコア",
+       y = "読解力スコア", color = "性別", shape = "性別") +
+  scale_color_viridis_d(option = "C", end = .8)
+```
+
+### ファセット（パネル分割）
+
+```{r}
+d |> 
+  drop_na(sex) |> 
+  ggplot(aes(x = vocab_w2_g3)) +
+  geom_histogram(binwidth = 5, 
+                 fill = "#3E4A89", 
+                 color = "white") +
+  facet_wrap(~ sex) +
+  labs(x = "語彙力スコア", y = "度数") 
+```
+
+
+## 平均値と信頼区間の図示
+
+```{r}
+# 父親の学歴別の平均値と信頼区間
+tab_vocab_by_fedu <- d |> 
+  drop_na(f_edu) |> 
+  summarise(
+    Mean = mean(vocab_w2_g3, na.rm = TRUE),
+    SD = sd(vocab_w2_g3, na.rm = TRUE),
+    n = sum(!is.na(vocab_w2_g3)),
+    SE = SD / sqrt(n),
+    ll = Mean + qt(0.025, df = n - 1) * SE,
+    ul = Mean + qt(0.975, df = n - 1) * SE,
+    .by = f_edu
+  )
+tab_vocab_by_fedu
+
+# 図示
+tab_vocab_by_fedu |> 
+  ggplot(aes(x = f_edu, y = Mean, ymin = ll, ymax = ul)) +
+  geom_pointrange() +
+  labs(x = "父親の学歴", 
+       y = "語彙力スコア（平均値と95%信頼区間）")
+```
+
+
+
+# 実践編
+
+## クロス表分析
+
+### クロス表の作成
+
+```{r}
+# 性別×親学歴のクロス表
+d |> 
+  drop_na(sex, f_edu) |> 
+  tabyl(sex, f_edu)
+
+# 行パーセント
+d |> 
+  drop_na(sex, f_edu) |> 
+  tabyl(sex, f_edu) |> 
+  adorn_percentages("row") |> 
+  adorn_pct_formatting(digits = 1)
+
+# 列パーセント
+d |> 
+  drop_na(sex, f_edu) |> 
+  tabyl(sex, f_edu) |> 
+  adorn_percentages("col") |> 
+  adorn_pct_formatting(digits = 1)
+```
+
+### カイ二乗検定
+
+```{r}
+# クロス表を作成（方法1：table関数）
+d_complete <- d |>
+  drop_na(sex, f_edu)
+tab <- table(d_complete$sex, d_complete$f_edu)
+tab
+
+# クロス表を作成（方法2：xtabs関数）
+# フォーミュラで変数を指定できる
+tab <- xtabs(~ sex + f_edu, data = d_complete)
+tab
+
+# カイ二乗検定
+chisq.test(tab)
+```
+
+
+## t検定
+
+2群の平均値の差を検定するには`t.test()`関数を使用する．
+
+```{r}
+# 性別による読解力スコアの差（2群比較）
+t.test(vocab_w2_g9 ~ sex, data = d)
+```
+
+```{r}
+# 等分散を仮定するt検定（Student's t-test）
+t.test(vocab_w2_g9 ~ sex, data = d, var.equal = TRUE)
+```
+
+::: {.callout-tip}
+## t検定の種類
+- **Welchのt検定**（デフォルト）：等分散を仮定しない．ほとんどの場合こちらを使用
+- **Studentのt検定**（`var.equal = TRUE`）：等分散を仮定．2群の分散が等しいと確信できる場合のみ
+- **対応のあるt検定**（`paired = TRUE`）：同一個人の前後比較など
+:::
+
+::: {.callout-note}
+## Rの確率分布関数
+Rでは各確率分布に対して4種類の関数が用意されている．t分布（`t`），正規分布（`norm`），カイ二乗分布（`chisq`），F分布（`f`）などに共通の命名規則である．
+
+| 接頭辞 | 関数名例 | 機能 | 用途 |
+|--------|----------|------|------|
+| `d` | `dt()`, `dnorm()` | 密度関数（確率密度） | 分布の形状を描画 |
+| `p` | `pt()`, `pnorm()` | 分布関数（累積確率） | p値の計算 |
+| `q` | `qt()`, `qnorm()` | 分位関数（パーセンタイル点） | 臨界値・信頼区間の計算 |
+| `r` | `rt()`, `rnorm()` | 乱数生成 | シミュレーション |
+
+```r
+# 例：t分布（自由度10）
+dt(2, df = 10)       # t=2での確率密度
+pt(2, df = 10)       # t≤2の累積確率（片側p値の補数）
+qt(0.975, df = 10)   # 累積確率0.975に対応するt値（両側5%の臨界値）
+rt(100, df = 10)     # t分布に従う乱数を100個生成
+
+# 例：正規分布
+qnorm(0.975)         # 1.96（95%信頼区間の係数）
+pnorm(1.96)          # 0.975
+```
+:::
+
+### 順位変換とノンパラメトリック検定
+
+データに外れ値が多い場合や正規性の仮定が満たされない場合，順位（rank）に変換してから分析する方法がある．
+
+```{r}
+# 順位への変換
+d <- d |>
+  mutate(vocab_rank = rank(vocab_w2_g9, na.last = "keep"))
+
+# 順位変換後のt検定（実質的にWilcoxon検定と同等）
+t.test(vocab_rank ~ sex, data = d)
+```
+
+```{r}
+# Wilcoxon順位和検定（Mann-Whitney U検定）
+# 順位に基づくノンパラメトリック検定
+wilcox.test(vocab_w2_g9 ~ sex, data = d)
+```
+
+::: {.callout-tip}
+## 順位変換の利点
+- 外れ値の影響を軽減できる
+- 正規性の仮定が不要
+- 元のスケールに依存しない比較が可能
+- `rank()`で順位変換し，通常のt検定・回帰分析を適用する方法も実用的
+:::
+
+::: {.callout-note}
+## Rank-Rank Correlation（順位-順位相関）
+所得の世代間移動研究では，親の所得順位と子の所得順位の相関（rank-rank correlation）がよく用いられる（Chetty et al., 2014など）．所得を順位に変換することで：
+
+- 所得分布の非正規性や外れ値の影響を軽減
+- 異なる時代・地域間での比較が容易
+- 「親が所得分布の下位25%にいる子が，上位25%に到達する確率」のような解釈が可能
+
+**順位変換の関数**：
+
+- `rank()`: 順位を返す（1, 2, 3, ...）．`ties.method`引数でタイ（同順位）の扱いを指定（デフォルトは`"average"`で平均順位）
+- `percent_rank()`: 0〜1のパーセンタイル順位を返す（`(rank - 1) / (n - 1)`）．タイは平均順位で処理
+- `dplyr::ntile()`: n分位（四分位なら`ntile(x, 4)`）
+
+**欠損値の扱い**：`rank()`は`na.last`引数で制御（デフォルトは`TRUE`で末尾に配置）．`percent_rank()`は欠損値に対して`NA`を返す．
+
+**（0.5, 0.5）を通る性質**：パーセンタイル順位の平均は常に0.5になるため，rank-rank回帰は必ず（0.5, 0.5）を通る．つまり「50パーセンタイルの親の子どもは，平均的に50パーセンタイルになる」という解釈が可能．
+
+```r
+# 親子の所得順位相関の例
+d |>
+  mutate(
+    parent_income_rank = percent_rank(parent_income),
+    child_income_rank = percent_rank(child_income)
+  ) |>
+  summarise(rank_rank_cor = cor(parent_income_rank, child_income_rank,
+                                 use = "complete.obs"))
+```
+:::
+
+
+## 分散分析（ANOVA）
+
+3群以上の平均値の差を検定するには分散分析を使用する．
+
+```{r}
+# 父親学歴（3群）による読解力スコアの差
+model_aov <- aov(vocab_w2_g9 ~ f_edu, data = d)
+summary(model_aov)
+```
+
+```{r}
+# ANOVAで有意差があった場合，どの群間に差があるかを調べる（Tukeyの多重比較）
+TukeyHSD(model_aov)
+```
+
+### 効果量
+
+p値は統計的有意性を示すが，効果の大きさは示さない．`effectsize`パッケージで効果量を計算できる．
+
+```{r}
+library(effectsize)
+
+# η²（イータ二乗）：説明された分散の割合
+eta_squared(model_aov)
+
+# ω²（オメガ二乗）：より保守的な推定値（母集団への一般化を考慮）
+omega_squared(model_aov)
+```
+
+::: {.callout-note}
+## 効果量の解釈の目安（Cohen, 1988）
+η²やω²の解釈の目安：
+
+- 小: 0.01
+- 中: 0.06
+- 大: 0.14
+
+ただし，分野や文脈によって「大きな効果」の基準は異なる．教育研究では0.01程度でも実質的に重要な場合がある．
+:::
+
+::: {.callout-warning}
+## 多重比較の問題
+複数の群を比較する場合，検定の回数が増えるほど偶然有意になる確率（第1種の過誤）が高くなる．3群の場合，すべての組み合わせ（3回）を個別にt検定すると，少なくとも1つが偶然有意になる確率は約14%に上昇する．TukeyのHSD法などの多重比較法は，この問題を補正する．
+:::
+
+::: {.callout-note}
+## ANOVAと回帰分析の関係
+カテゴリ変数を説明変数とする回帰分析は，ANOVAと本質的に同じ分析である．回帰分析では参照カテゴリとの差として係数が出力され，ANOVAではF検定で全体の差を検定する．
+:::
+
+
+## 回帰分析
+
+回帰分析は，説明変数$X$を条件としたときの従属変数$Y$の期待値$E[Y|X]$を線形予測子でモデル化する手法である．例えば，語彙力スコアを条件としたときの読解力スコアの期待値$E[\text{読解力}|\text{語彙力}]$をモデル化する．Rでは`lm()`関数で線形回帰モデルを推定できる．
+
+::: {.callout-warning}
+## 回帰係数の解釈について
+回帰分析で得られる係数は，他の変数を統制した上での**関連**（条件付き関連）を示すものである．観察データから得られた係数を直ちに**因果効果**として解釈することには注意が必要である．因果効果として解釈するためには，交絡変数の統制，選択バイアスの考慮，時間的順序の確認など，追加の検討が必要となる．
+:::
+
+### 単回帰分析
+
+1つの説明変数で従属変数を予測するモデルである．
+
+```{r}
+# 語彙力と読解力の関連
+model1 <- lm(vocab_w2_g9 ~ vocab_w2_g3,
+             data = d)
+summary(model1)
+```
+
+### 結果の整理：broomパッケージ
+
+`broom`パッケージには，モデルの結果をtibble形式で取得する3つの関数がある．
+
+| 関数 | 内容 | 行数 |
+|------|------|------|
+| `tidy()` | 係数・標準誤差・p値など | 説明変数の数 |
+| `glance()` | R²・AICなどモデル全体の指標 | 1行 |
+| `augment()` | 予測値・残差など観測ごとの値 | 観測数 |
+
+```{r}
+# tidy(): 係数の情報
+tidy(model1)
+
+# tidy()に信頼区間を追加
+tidy(model1, conf.int = TRUE)
+```
+
+```{r}
+# glance(): モデル全体の適合度指標
+glance(model1)
+```
+
+```{r}
+# augment(): 観測ごとの予測値・残差
+augment(model1) |> head()
+```
+
+::: {.callout-tip}
+## augment()の出力
+
+- `.fitted`: 予測値（$\hat{y}$）
+- `.resid`: 残差（$y - \hat{y}$）
+- `.hat`: てこ比（leverage）
+- `.cooksd`: Cook's distance（影響度）
+- `.std.resid`: 標準化残差
+
+`augment()`は`predict()`と同様の機能を持つが，残差や診断指標も同時に得られる点で便利である．なお，`augment(model, newdata = 新データ)`で新しいデータに対する予測も可能．
+:::
+
+```{r}
+# augment()を使った残差プロット
+augment(model1) |>
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(x = "予測値", y = "残差",
+       title = "残差プロット（予測値 vs 残差）")
+```
+
+
+### 重回帰分析
+
+複数の説明変数を同時に投入することで，他の変数を統制した上での関連を推定できる．
+
+```{r}
+# 複数の説明変数
+model2 <- lm(vocab_w2_g9 ~
+               vocab_w2_g3 + sex + f_edu,
+             data = d)
+summary(model2)
+tidy(model2)
+```
+
+### カテゴリカル変数の参照カテゴリ
+
+カテゴリカル変数はダミー変数に変換されるが，どのカテゴリを参照（基準）とするかで係数の解釈が変わる．`fct_relevel()`で参照カテゴリを変更できる．
+
+```{r}
+# 参照カテゴリを変更する場合
+d <- d |>
+  mutate(
+    f_edu_f = fct_relevel(f_edu, "大学・院")
+  )
+
+model3 <- lm(vocab_w2_g9 ~ 
+               vocab_w2_g3 + sex + f_edu_f, 
+             data = d)
+tidy(model3)
+```
+
+### 交互作用
+
+説明変数の効果が他の変数によって異なる場合，交互作用項を投入する．`*`を使うと主効果と交互作用項の両方が含まれる．
+
+```{r}
+# 性別×語彙力の交互作用
+model4 <- lm(vocab_w2_g9 ~
+               vocab_w2_g3 * sex,
+             data = d)
+tidy(model4)
+```
+
+### 回帰分析結果の図示
+
+係数と信頼区間を可視化すると，効果の大きさや有意性を直感的に把握できる．
+
+```{r}
+# 係数のプロット
+tidy(model2, conf.int = TRUE) |>
+  filter(term != "(Intercept)") |>
+  ggplot(aes(x = estimate,
+             y = term,
+             xmin = conf.low,
+             xmax = conf.high)) +
+  geom_pointrange() +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(x = "係数（95%信頼区間）", y = "")
+```
+
+
+### 予測値の算出：predict()
+
+回帰分析の結果から予測値を算出する`predict()`関数は，様々な場面で活用される．
+
+- **記述的な目的**：モデルによる予測値と信頼区間を図示する
+- **欠損値処理**：回帰代入法で欠損値を予測値で補完する
+- **因果推論**：傾向スコアの算出，反実仮想の予測
+
+#### 基本的な使い方
+
+```{r}
+# 分析用データの作成（欠損のないケース）
+d_pred <- d |>
+  drop_na(vocab_w2_g3, vocab_w2_g9, sex, f_edu)
+
+# 回帰モデルの推定
+model_pred <- lm(vocab_w2_g9 ~ vocab_w2_g3 + sex + f_edu,
+                 data = d_pred)
+
+# 予測値の算出
+d_pred <- d_pred |>
+  mutate(
+    predicted = predict(model_pred),           # 予測値
+    residual = vocab_w2_g9 - predicted         # 残差
+  )
+
+# 確認
+d_pred |>
+  select(vocab_w2_g9, predicted, residual) |>
+  head()
+```
+
+#### 信頼区間付きの予測
+
+`predict()`に`interval = "confidence"`を指定すると，予測値の95%信頼区間が得られる．
+
+```{r}
+# 信頼区間付きで予測
+pred_ci <- predict(model_pred, interval = "confidence") |>
+  as_tibble()
+
+# データに結合
+d_pred <- d_pred |>
+  bind_cols(pred_ci |> rename(pred_fit = fit,
+                               pred_lwr = lwr,
+                               pred_upr = upr))
+
+d_pred |>
+  select(vocab_w2_g9, pred_fit, pred_lwr, pred_upr) |>
+  head()
+```
+
+::: {.callout-note}
+## interval引数について
+- `"confidence"`: 平均予測値の信頼区間（回帰直線の不確実性）
+- `"prediction"`: 個々の観測値の予測区間（個人差も含む，より広い）
+:::
+
+#### 新しいデータに対する予測
+
+`newdata`引数を使うと，元データにない値に対しても予測ができる．`expand_grid()`を使うと，指定した変数の全組み合わせを簡単に作成できる．
+
+```{r}
+# 予測用の新しいデータを作成
+# expand_grid()で全組み合わせを生成
+new_data <- expand_grid(
+  vocab_w2_g3 = seq(30, 70, by = 5),
+  sex = c("男子", "女子"),
+  f_edu = "大学・院"  # 固定する変数は1つの値だけ指定
+)
+new_data  # 9 × 2 = 18行のデータ
+
+# 新しいデータに対する予測（信頼区間付き）
+pred_new <- predict(model_pred,
+                    newdata = new_data,
+                    interval = "confidence") |>
+  as_tibble()
+
+# 結合
+new_data <- new_data |>
+  bind_cols(pred_new)
+
+new_data
+```
+
+#### 予測値の図示
+
+```{r}
+# 予測値と信頼区間の図示
+new_data |>
+  ggplot(aes(x = vocab_w2_g3, y = fit,
+             color = sex, fill = sex, linetype = sex)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr),
+              alpha = 0.2, color = NA) +
+  geom_line() +
+  scale_color_viridis_d(option = "C", end = .8) +
+  scale_fill_viridis_d(option = "C", end = .8) +
+  labs(x = "語彙力スコア（小3基準）",
+       y = "読解力スコア（中3基準）の予測値",
+       color = "性別", fill = "性別", linetype = "性別",
+       title = "回帰モデルによる予測（父学歴：大学・院）") +
+  theme(legend.position = "bottom")
+```
+
+::: {.callout-tip}
+## predict()の応用
+
+`predict()`は発展的な分析でも重要な役割を果たす．
+
+- **回帰代入法（Regression Imputation）**: 欠損値を回帰モデルの予測値で補完する，または因果推論で潜在アウトカム（反実仮想）を予測する
+- **傾向スコア分析**: ロジスティック回帰で処置確率（傾向スコア）を予測する
+
+これらの手法では，推定したモデルを使って新しい条件下での値を予測することが本質的な役割となる．
+:::
+
+
+## ロジスティック回帰分析
+
+2値（0/1）の従属変数を分析する場合は，ロジスティック回帰を使用する．
+
+### 基本的なロジスティック回帰
+
+`glm()`関数に`family = binomial`を指定する．係数は対数オッズ（log-odds）として推定される．
+
+```{r}
+# 通塾（2015年時点）を従属変数とした分析
+# 分析用データの作成
+d_logit <- d |>
+  filter(grade__2015 == 9) |>
+  drop_na(sex, juku__2015, f_edu, income__2015) |>
+  mutate(
+    income_100 = income__2015 / 100  # 係数を見やすくするため100万円単位に
+  )
+
+# ロジスティック回帰
+logit1 <- glm(juku__2015 ~ sex + f_edu + income_100,
+              data = d_logit,
+              family = binomial(link = "logit"))
+summary(logit1)
+```
+
+### 結果の整理
+
+`tidy()`の`exponentiate = TRUE`でオッズ比を取得できる．
+
+```{r}
+# 係数（対数オッズ）
+tidy(logit1, conf.int = TRUE, exponentiate = FALSE)
+
+# オッズ比として表示
+tidy(logit1, conf.int = TRUE, exponentiate = TRUE)
+```
+
+::: {.callout-tip}
+## オッズ比の解釈
+- オッズ比 > 1：その変数が増えると通塾確率が上がる
+- オッズ比 < 1：その変数が増えると通塾確率が下がる
+- オッズ比 = 1：関連なし
+:::
+
+
+### 限界効果の推定
+
+オッズ比は解釈が難しいため，限界効果（確率の変化）を計算すると分かりやすくなる．
+
+```{r}
+#| eval: false
+# パッケージのインストール（初回のみ）
+install.packages("marginaleffects")
+```
+
+```{r}
+#| eval: true
+#| cache: true
+library(marginaleffects)
+
+# 平均限界効果（Average Marginal Effects: AME）
+marginaleffects::avg_slopes(logit1)
+```
+
+::: {.callout-tip}
+## 限界効果の解釈
+- 連続変数：その変数が1単位増加したときの確率の変化（パーセントポイント）
+- カテゴリ変数：参照カテゴリと比較したときの確率の差
+:::
+
+### 限界効果の図示
+
+```{r}
+#| eval: true
+#| cache: true
+# カテゴリ変数の限界効果をプロット
+marginaleffects::avg_slopes(logit1,
+                            variables = "f_edu") |>
+  ggplot(aes(x = estimate, y = contrast,
+             xmin = conf.low, xmax = conf.high)) +
+  geom_pointrange() +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(x = "通塾確率の差（パーセントポイント）",
+       y = "父親の学歴（参照：中学・高校）",
+       title = "父親学歴の限界効果")
+```
+
+```{r}
+#| eval: false
+# 収入の限界効果を収入水準別にプロット
+plot_slopes(logit1, variables = "income_100", condition = "income_100") +
+  labs(x = "世帯年収（100万円）",
+       y = "限界効果（確率の変化）",
+       title = "世帯年収の限界効果")
+```
+
+### expand_grid()を使った予測
+
+`marginaleffects`パッケージの`predictions()`関数と`expand_grid()`を組み合わせると，特定の条件下での予測確率を柔軟に計算できる．
+
+```{r}
+#| eval: true
+# 予測用データを作成
+pred_data <- expand_grid(
+  f_edu = c("中学・高校", "専門・短大", "大学・院"),
+  income_100 = c(3, 5, 7, 10),  # 年収300万〜1000万
+  sex = c("男子", "女子")
+)
+
+# 各条件での予測確率を計算
+marginaleffects::predictions(logit1, newdata = pred_data) |>
+  select(f_edu, income_100, sex, estimate, conf.low, conf.high) |>
+  arrange(f_edu, income_100, sex)
+```
+
+::: {.callout-tip}
+## expand_grid()の活用
+`expand_grid()`で変数の全組み合わせを作成し，`predictions()`で予測確率を計算することで，「父学歴が大卒で年収700万の男子の通塾確率は何%か」といった具体的な問いに答えられる．これは因果推論における反実仮想の予測にも応用できる．
+:::
+
+
+## 回帰分析結果の比較
+
+複数のモデルを比較する際は，`modelsummary`パッケージが便利である．
+
+```{r}
+#| eval: false
+# パッケージのインストール（初回のみ）
+install.packages("modelsummary")
+```
+
+```{r}
+library(modelsummary)
+
+# 複数モデルの比較表
+modelsummary(
+  list("Model 1" = model1,
+       "Model 2" = model2,
+       "Model 4" = model4),
+  stars = TRUE,
+  gof_omit = "IC|Log|RMSE"
+)
+```
+
+### ロジスティック回帰の比較
+
+ロジスティック回帰でも同様に比較表を作成できる．`exponentiate = TRUE`でオッズ比として表示する．
+
+```{r}
+# モデルを追加
+logit2 <- glm(juku__2015 ~ f_edu + income_100 + sex,
+              data = d_logit,
+              family = binomial(link = "logit"))
+
+# 比較表（オッズ比で表示）
+modelsummary(
+  list("基本モデル" = logit1,
+       "性別追加" = logit2),
+  exponentiate = TRUE,
+  stars = TRUE,
+  gof_omit = "IC|Log"
+)
+```
+
+::: {.callout-tip}
+## modelsummaryの利点
+- 複数モデルを横に並べて比較できる
+- HTML，LaTeX，Word形式で出力可能
+- `exponentiate = TRUE`でオッズ比表示に切り替え
+:::
+
+
+### 回帰分析における多重比較調整
+
+回帰分析でカテゴリ変数を説明変数として使う場合，参照カテゴリとの差のみが出力される．すべてのカテゴリ間の比較を行い，多重比較調整をするには`emmeans`パッケージが便利である．
+
+```{r}
+#| eval: false
+# パッケージのインストール（初回のみ）
+install.packages("emmeans")
+```
+
+```{r}
+library(emmeans)
+
+# 父親学歴を説明変数とするモデル
+model_edu <- lm(vocab_w2_g9 ~ f_edu, data = d)
+
+# 推定周辺平均（Estimated Marginal Means）
+emm <- emmeans(model_edu, ~ f_edu)
+emm
+
+# すべてのペアワイズ比較（Holm法で多重比較調整）
+pairs(emm, adjust = "holm")
+```
+
+::: {.callout-tip}
+## emmeansの多重比較調整法
+`adjust`引数で調整法を指定できる：
+
+- `"holm"`: Holm法（推奨．Bonferroniより検出力が高く，同じ第1種過誤率を維持）
+- `"tukey"`: Tukeyの方法（ANOVAの事後比較で伝統的）
+- `"fdr"` または `"BH"`: Benjamini-Hochberg法（多数の検定で偽発見率を制御）
+- `"bonferroni"`: Bonferroni法（保守的すぎることが多い）
+- `"none"`: 調整なし
+:::
+
+::: {.callout-note}
+## 推定周辺平均（EMM）とは
+推定周辺平均は，他の共変量を平均値に固定したときの各カテゴリの予測平均である．複数の説明変数があるモデルでも，特定のカテゴリ変数の効果を分離して比較できる．
+:::
+
+
+## 主成分分析と合成変数の活用
+
+多数の変数がある場合，それらを少数の成分に要約する主成分分析（PCA: Principal Component Analysis）が有用である．相関の高い変数群を1つの成分にまとめることで，合成変数を作成できる．
+
+ここでは学校適応に関する5項目から「学校適応得点」を作成し，グループ間の比較を行う例を示す．
+
+### 主成分分析の実行
+
+```{r}
+# 学校適応に関する項目を選択（Wave1子ども調査）
+# ds0000000244_w1c: 授業が楽しい
+# ds0000000245_w1c: 友だちとすごすのが楽しい
+# ds0000000246_w1c: 尊敬できる先生がいる
+# ds0000000249_w1c: 自分のクラスが好きだ
+# ds0000000250_w1c: 自分の学校が好きだ
+# 値: 1=とてもあてはまる, 2=まああてはまる, 3=あまりあてはまらない, 4=まったくあてはまらない
+
+d_pca <- d |>
+  select(
+    school_1 = ds0000000244_w1c,
+    school_2 = ds0000000245_w1c,
+    school_3 = ds0000000246_w1c,
+    school_4 = ds0000000249_w1c,
+    school_5 = ds0000000250_w1c
+  ) |>
+  # 欠損値コード（7777, 8888, 9999）をNAに変換
+  mutate(across(everything(), recode_missing)) |>
+  drop_na()
+
+# 主成分分析の実行
+pca_result <- prcomp(d_pca, scale. = TRUE)
+
+# 結果の要約（累積寄与率を確認）
+summary(pca_result)
+
+# 各主成分の負荷量（元の変数との関係）
+pca_result$rotation
+```
+
+::: {.callout-note}
+## scale.引数について
+`scale. = TRUE`を指定すると，各変数を標準化（平均0，標準偏差1）してから分析する．変数間でスケールが異なる場合は標準化が推奨される．
+:::
+
+### 主成分得点をデータに追加
+
+```{r}
+# 主成分得点をデータに追加
+# 欠損値がある行はNAになる
+d_school <- d |>
+  select(
+    school_1 = ds0000000244_w1c,
+    school_2 = ds0000000245_w1c,
+    school_3 = ds0000000246_w1c,
+    school_4 = ds0000000249_w1c,
+    school_5 = ds0000000250_w1c
+  ) |>
+  mutate(across(everything(), recode_missing))
+
+# 主成分得点を元のデータに追加（欠損がある行は自動的にNAになる）
+d <- d |>
+  mutate(school_adapt = predict(pca_result, newdata = d_school)[, 1])
+
+# 学校適応得点の分布
+d |>
+  drop_na(school_adapt) |>
+  ggplot(aes(x = school_adapt)) +
+  geom_histogram(binwidth = 0.5, fill = "#3E4A89", color = "white") +
+  labs(x = "学校適応得点（第1主成分）", y = "度数",
+       title = "学校適応得点の分布")
+```
+
+### 合成変数を用いたグループ間比較
+
+作成した学校適応得点を使って，父親学歴別の平均値と95%信頼区間を算出・図示する．
+
+```{r}
+# 父親学歴別の学校適応得点（平均と95%信頼区間）
+d |>
+  drop_na(school_adapt, f_edu) |>
+  summarise(
+    mean = mean(school_adapt),
+    sd = sd(school_adapt),
+    n = n(),
+    se = sd / sqrt(n),
+    ll = mean - 1.96 * se,
+    ul = mean + 1.96 * se,
+    .by = f_edu
+  )
+```
+
+```{r}
+# 図示（信頼区間付き）
+d |>
+  drop_na(school_adapt, f_edu) |>
+  summarise(
+    mean = mean(school_adapt),
+    sd = sd(school_adapt),
+    n = n(),
+    se = sd / sqrt(n),
+    ll = mean - 1.96 * se,
+    ul = mean + 1.96 * se,
+    .by = f_edu
+  ) |>
+  ggplot(aes(x = f_edu, y = mean, ymin = ll, ymax = ul)) +
+  geom_col(fill = "#3E4A89", alpha = 0.7) +
+  geom_errorbar(width = 0.2) +
+  labs(x = "父親の学歴", y = "学校適応得点（平均）",
+       title = "父親学歴別の学校適応得点（95%信頼区間付き）")
+```
+
+### 合成変数を用いた回帰分析
+
+学校適応得点を説明変数として回帰分析に使用することもできる．
+
+```{r}
+# 学校適応得点が通塾に与える影響（ロジスティック回帰）
+model_adapt <- glm(juku__2015 ~ school_adapt + sex + f_edu,
+                   data = d,
+                   family = binomial)
+
+tidy(model_adapt, conf.int = TRUE) |>
+  mutate(
+    odds_ratio = exp(estimate),
+    or_ll = exp(conf.low),
+    or_ul = exp(conf.high)
+  ) |>
+  select(term, odds_ratio, or_ll, or_ul, p.value)
+```
+
+::: {.callout-tip}
+## 主成分分析の活用場面
+- **次元削減**：多数の変数を少数の主成分に要約し，回帰分析の説明変数として使用
+- **多重共線性の回避**：相関の高い変数群を1つの成分にまとめる
+- **尺度得点の作成**：複数の質問項目から合成得点を作成
+:::
+
+::: {.callout-note}
+## 関連手法
+- **探索的因子分析（EFA）**：観測変数の背後にある潜在因子を探索する手法．主成分分析と異なり，観測変数の共通因子と独自因子を区別する．`psych`パッケージの`fa()`関数が推奨（oblimin等の斜交回転に対応）．base Rの`factanal()`はvarimax/promaxのみ
+- **対応分析（CA）**：カテゴリ変数のクロス表を可視化する手法．パッケージ：`FactoMineR`, `ca`
+- **多重対応分析（MCA）**：複数のカテゴリ変数を同時に分析する手法．パッケージ：`FactoMineR`, `homals`
+:::
+
+::: {.callout-tip}
+## 主成分分析と因子分析の違い
+- **主成分分析（PCA）**：データの分散を最大限説明する成分を抽出．次元削減・合成変数作成が目的．
+- **因子分析（FA）**：観測変数の共分散構造を説明する潜在因子を推定．構成概念の探索が目的．
+
+実用上，項目数が多く因子構造の探索が目的なら因子分析，単純な次元削減・合成変数作成なら主成分分析を使うことが多い．
+:::
+
+
+## ウェイト付き分析
+
+調査データを分析する際，サンプリングウェイト（重み付け）を用いて母集団への一般化を行う場合がある．
+
+### weights引数を使う方法
+
+多くの関数には`weights`引数があり，単純なウェイト付き分析が可能である．
+
+```{r}
+#| eval: false
+# 仮のウェイト変数を作成（実際のデータではウェイト変数を使用）
+d <- d |>
+  mutate(weight = runif(n(), 0.5, 1.5))
+
+# ウェイト付き回帰分析
+model_weighted <- lm(vocab_w2_g9 ~ f_edu + income__2015,
+                     data = d,
+                     weights = weight)
+summary(model_weighted)
+
+# ウェイト付きロジスティック回帰
+model_logit_weighted <- glm(juku__2015 ~ f_edu + income__2015,
+                            data = d,
+                            family = binomial,
+                            weights = weight)
+summary(model_logit_weighted)
+```
+
+::: {.callout-warning}
+## weights引数の限界
+`lm()`や`glm()`の`weights`引数は，標準誤差の計算において複雑なサンプリングデザイン（層化，クラスタリングなど）を考慮しない．単純無作為抽出の場合や，重み付けした点推定のみが必要な場合に使用する．
+:::
+
+### surveyパッケージを使う方法
+
+複雑なサンプリングデザイン（層化抽出，クラスタ抽出など）を考慮した分析には`survey`パッケージを使用する．
+
+```{r}
+#| eval: false
+library(survey)
+
+# サンプリングデザインの指定
+# ids: クラスタ変数（なければ~1）
+# strata: 層化変数（なければNULL）
+# weights: ウェイト変数
+# data: データフレーム
+design <- svydesign(
+  ids = ~1,           # クラスタなし（単純無作為抽出）
+  strata = NULL,      # 層化なし
+  weights = ~weight,  # ウェイト変数
+  data = d
+)
+
+# ウェイト付き平均
+svymean(~vocab_w2_g9, design, na.rm = TRUE)
+
+# ウェイト付き集計（カテゴリ別）
+svyby(~vocab_w2_g9, ~f_edu, design, svymean, na.rm = TRUE)
+
+# ウェイト付きクロス表
+svytable(~f_edu + juku__2015, design)
+
+# ウェイト付き回帰分析
+model_survey <- svyglm(vocab_w2_g9 ~ f_edu + income__2015, design)
+summary(model_survey)
+
+# ウェイト付きロジスティック回帰
+model_survey_logit <- svyglm(juku__2015 ~ f_edu + income__2015,
+                              design,
+                              family = quasibinomial)
+summary(model_survey_logit)
+```
+
+::: {.callout-note}
+## svyglm()でのロジスティック回帰
+`svyglm()`でロジスティック回帰を行う場合は，`family = quasibinomial`を指定する．`binomial`を使うと収束の問題が生じる場合がある．
+:::
+
+### 層化・クラスタ抽出の場合
+
+```{r}
+#| eval: false
+# 層化クラスタ抽出の例
+# 例：都道府県で層化し，市区町村でクラスタ抽出
+design_complex <- svydesign(
+  ids = ~cluster_id,      # クラスタ変数（市区町村など）
+  strata = ~stratum_id,   # 層化変数（都道府県など）
+  weights = ~weight,
+  data = d,
+  nest = TRUE             # クラスタが層内でネストされている場合
+)
+
+# 分析は同様
+svymean(~vocab_w2_g9, design_complex, na.rm = TRUE)
+```
+
+::: {.callout-tip}
+## srvyrパッケージ
+`srvyr`パッケージを使うと，`survey`パッケージの機能をtidyverseの文法で使える．
+
+```r
+library(srvyr)
+
+# srvyrでデザイン指定
+design_srvyr <- d |>
+  as_survey_design(weights = weight)
+
+# dplyr風の集計
+design_srvyr |>
+  group_by(f_edu) |>
+  summarise(
+    mean_vocab = survey_mean(vocab_w2_g9, na.rm = TRUE),
+    n = unweighted(n())
+  )
+```
+:::
+
+::: {.callout-warning}
+## ウェイトを使うべきかどうか
+ウェイト付き分析が常に必要なわけではない．
+
+- **記述統計**（母集団の特性を推定）：ウェイトを使用
+- **回帰分析**（変数間の関連の推定）：ウェイトが必要かは議論がある
+
+回帰分析でウェイトを使うかどうかは，分析の目的やサンプリングデザインに依存する．Solon, Haider, & Wooldridge (2015)などの議論を参照のこと．
+:::
+
+
+## パネルデータの作成
+
+パネルデータ（縦断データ）では，同一個人を複数時点で観察する．
+
+### ワイド形式からロング形式への変換
+
+パネルデータには2つの形式がある．
+
+- **ワイド形式**：1行に1人のデータ，各時点の変数が横に並ぶ
+- **ロング形式**：1行に1人1時点のデータ，時点ごとに行が増える
+
+#### ワイド形式（Wide format）
+
+1行に1人のすべての時点のデータが含まれる．
+
+```
+| id | income__2015 | income__2016 | income__2017 |
+|----|--------------|--------------|--------------|
+| 1  | 500          | 550          | 600          |
+| 2  | 400          | 420          | 450          |
+| 3  | 700          | 710          | 750          |
+```
+
+#### ロング形式（Long format）
+
+1行に1人1時点のデータが含まれ，時点ごとに行が増える．
+
+```
+| id | year | income |
+|----|------|--------|
+| 1  | 2015 | 500    |
+| 1  | 2016 | 550    |
+| 1  | 2017 | 600    |
+| 2  | 2015 | 400    |
+| 2  | 2016 | 420    |
+| 2  | 2017 | 450    |
+| 3  | 2015 | 700    |
+| 3  | 2016 | 710    |
+| 3  | 2017 | 750    |
+```
+
+多くの統計手法（固定効果モデルなど）ではロング形式が必要である．`pivot_longer()`関数で変換できる．
+
+::: {.callout-tip}
+## 変数名の命名規則
+ワイド形式からロング形式に変換する際，変数名を`変数名__年`のように統一しておくと，`names_sep = "__"`で簡単に分割できる．
+:::
+
+
+```{r}
+d_wide <- d |>
+  select(PanelID,
+         sex,
+         f_edu,
+         m_edu,
+         contains("grade__"),
+         contains("income__"),
+         contains("juku__"))
+
+d_long <- d_wide |>
+    pivot_longer(
+    cols = -c(PanelID, sex, f_edu, m_edu),
+    names_to = c(".value", "year"),
+    names_sep = "__"
+  ) |>
+  mutate(year = as.numeric(year))
+
+# 確認
+d_long |> head(10)
+```
+
+
+
+
+### ロング形式でのデータ操作
+
+ロング形式では，`.by`引数を使って個人別や年別の集計が容易にできる．
+
+```{r}
+# 個人別の平均収入
+d_long |>
+  summarise(mean_income = mean(income, na.rm = TRUE),
+            .by = PanelID) |>
+  drop_na() |>
+  head(10)
+
+# 年別の平均収入
+d_long |>
+  summarise(mean_income = mean(income, na.rm = TRUE),
+            n = sum(!is.na(income)),
+            .by = year) |>
+  arrange(year)
+
+# 年別の通塾率
+d_long |>
+  summarise(juku_rate = mean(juku, na.rm = TRUE),
+            n = sum(!is.na(juku)),
+            .by = year) |>
+  arrange(year)
+```
+
+#### ラグ変数・リード変数の作成
+
+パネルデータ分析では，前時点の値（ラグ変数）や次時点の値（リード変数）を使うことが多い．`dplyr`の`lag()`と`lead()`関数で作成できる．
+
+```{r}
+# ラグ変数とリード変数の作成
+d_long <- d_long |>
+  arrange(PanelID, year) |>  # 必ずソートしてから
+
+  mutate(
+    income_lag = lag(income),    # 前年の収入
+    income_lead = lead(income),  # 翌年の収入
+    income_diff = income - income_lag,  # 収入の変化
+    .by = PanelID  # 個人ごとに計算
+  )
+
+# 確認
+d_long |>
+  filter(PanelID == first(PanelID)) |>
+  select(PanelID, year, income, income_lag, income_lead, income_diff)
+```
+
+::: {.callout-warning}
+## lag()使用時の注意
+- **必ず`.by`（または`group_by()`）で個人を指定**：指定しないと他の個人のデータが混入する
+- **事前にソート**：`arrange()`で個人・時点の順に並べてから実行
+- **欠損値の発生**：最初の時点のラグ変数，最後の時点のリード変数は`NA`になる
+:::
+
+### パネルデータの可視化
+
+パネルデータでは，時間変化をグラフで示すことが重要である．まず全体の推移を確認し，次にグループ別の違いを検討する．
+
+```{r}
+# 年別の通塾率の推移（信頼区間付き）
+d_long |>
+  drop_na(juku) |>
+  summarise(
+    juku_rate = mean(juku, na.rm = TRUE),
+    n = sum(!is.na(juku)),
+    se = sqrt(juku_rate * (1 - juku_rate) / n),  # 二項分布の標準誤差
+    ll = juku_rate - 1.96 * se,
+    ul = juku_rate + 1.96 * se,
+    .by = year) |>
+  ggplot(aes(x = year, y = juku_rate, ymin = ll, ymax = ul)) +
+  geom_line() +
+  geom_point() +
+  geom_ribbon(alpha = 0.2) +
+  scale_x_continuous(breaks = 2015:2021) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "年", y = "通塾率",
+       title = "通塾率の推移（95%信頼区間付き）")
+```
+
+```{r}
+# 父親学歴別の通塾率の推移（信頼区間付き）
+d_long |>
+  drop_na(juku, f_edu) |>
+  summarise(
+    juku_rate = mean(juku, na.rm = TRUE),
+    n = sum(!is.na(juku)),
+    se = sqrt(juku_rate * (1 - juku_rate) / n),
+    ll = juku_rate - 1.96 * se,
+    ul = juku_rate + 1.96 * se,
+    .by = c(year, f_edu)) |>
+  ggplot(aes(x = year, y = juku_rate, color = f_edu, fill = f_edu,
+             linetype = f_edu, shape = f_edu,
+             ymin = ll, ymax = ul)) +
+  geom_ribbon(alpha = 0.15, color = NA) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 2015:2021) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_viridis_d(option = "C", end = .8) +
+  scale_fill_viridis_d(option = "C", end = .8) +
+  labs(x = "年", y = "通塾率",
+       color = "父親の学歴", fill = "父親の学歴",
+       linetype = "父親の学歴", shape = "父親の学歴",
+       title = "父親学歴別の通塾率の推移（95%信頼区間付き）")
+```
+
+```{r}
+# 個人の収入変化（サンプル100人）
+set.seed(123)
+sample_ids <- d_long |>
+  drop_na(income) |>
+  distinct(PanelID) |>
+  slice_sample(n = 100) |>
+  pull(PanelID)
+
+d_long |>
+  filter(PanelID %in% sample_ids) |>
+  ggplot(aes(x = year,
+             y = income,
+             group = PanelID)) +
+  geom_line(alpha = 0.3) +
+  geom_point(alpha = 0.5, size = 1) +
+  stat_summary(aes(group = 1), fun = mean, geom = "line",
+               color = "red", linewidth = 1.5) +
+  stat_summary(aes(group = 1), fun = mean, geom = "point",
+               color = "red", size = 3) +
+  scale_x_continuous(breaks = 2015:2021) +
+  labs(x = "年", y = "世帯年収（万円）",
+       title = "世帯年収の推移（サンプル100人）",
+       caption = "赤線は全体の平均値")
+```
+
+#### 状態変化の可視化：Sankey図
+
+パネルデータでは，個人の状態変化（例：通塾の有無）を追跡できる．`ggalluvial`パッケージを使うと，状態間の遷移をSankey図（alluvial plot）として可視化できる．
+
+ここでは，中学1年から中学3年までの3年間で通塾状態がどう変化するかを可視化する．W1で小6だった児童を中1〜中3まで追跡する．
+
+```{r}
+library(ggalluvial)
+
+# W1で小6（2016年度に中1）の児童を中1〜中3まで追跡
+# grade = 6 in W1 → grade 7 in W2 (2016), grade 8 in W3 (2017), grade 9 in W4 (2018)
+d_sankey <- d |>
+  filter(`w1学年` == 6) |>  # W1で小6
+
+  select(PanelID, juku__2016, juku__2017, juku__2018) |>
+  drop_na() |>
+  mutate(
+    中1 = if_else(juku__2016 == 1, "通塾", "非通塾"),
+    中2 = if_else(juku__2017 == 1, "通塾", "非通塾"),
+    中3 = if_else(juku__2018 == 1, "通塾", "非通塾")
+  ) |>
+  count(中1, 中2, 中3)
+
+d_sankey
+
+# Sankey図
+d_sankey |>
+  ggplot(aes(axis1 = 中1, axis2 = 中2, axis3 = 中3, y = n)) +
+  geom_alluvium(aes(fill = 中1), width = 1/12) +
+  geom_stratum(width = 1/12, fill = "grey80", color = "grey50") +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("中1", "中2", "中3"), expand = c(0.1, 0.1)) +
+  scale_fill_viridis_d(option = "C", end = 0.8) +
+  labs(y = "人数", fill = "中1時点の状態",
+       title = "中学校3年間の通塾状態の変化") +
+  theme(legend.position = "bottom")
+```
+
+::: {.callout-tip}
+## Sankey図の活用場面
+- 職業移動や階層移動の可視化
+- 学歴・進路の変化
+- 就業状態（就業・失業・非労働力）の遷移
+- 健康状態や生活習慣の変化
+:::
+
+
+### 学年を横軸にした可視化
+
+通塾のように学年によって大きく変化する現象は，調査年ではなく**学年**を横軸にした方が理解しやすい．同じ学年でも調査年が異なるコーホートが存在するため，コーホート間の比較も可能になる．
+
+```{r}
+# 学年別の通塾率
+d_long |>
+  drop_na(juku, grade) |>
+  filter(grade %in% 1:12) |>
+  summarise(juku_rate = mean(juku, na.rm = TRUE),
+            n = sum(!is.na(juku)),
+            .by = grade) |>
+  arrange(grade)
+```
+
+```{r}
+# 学年別の通塾率（図示・信頼区間付き）
+d_long |>
+  drop_na(juku, grade) |>
+  filter(grade %in% 1:12) |>
+  summarise(
+    juku_rate = mean(juku, na.rm = TRUE),
+    n = sum(!is.na(juku)),
+    se = sqrt(juku_rate * (1 - juku_rate) / n),
+    ll = juku_rate - 1.96 * se,
+    ul = juku_rate + 1.96 * se,
+    .by = grade) |>
+  ggplot(aes(x = grade, y = juku_rate, ymin = ll, ymax = ul)) +
+  geom_ribbon(alpha = 0.2) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 1:12,
+                     labels = c(paste0("小", 1:6), paste0("中", 1:3), paste0("高", 1:3))) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "学年", y = "通塾率",
+       title = "学年別の通塾率（95%信頼区間付き）")
+```
+
+```{r}
+# 出生コーホート別の通塾率（同一コーホートの学年変化を追跡）
+# コーホート = 調査年 - 学年（小1入学年度で定義）
+d_long |>
+  drop_na(juku, grade) |>
+  filter(grade %in% 1:12) |>
+  mutate(cohort = year - grade) |>
+  summarise(
+    juku_rate = mean(juku, na.rm = TRUE),
+    n = sum(!is.na(juku)),
+    .by = c(grade, cohort)) |>
+  filter(n >= 30) |>  # サンプルサイズが小さいコーホート×学年を除外
+  ggplot(aes(x = grade, y = juku_rate,
+             color = cohort, group = cohort)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 1:12,
+                     labels = c(paste0("小", 1:6), paste0("中", 1:3), paste0("高", 1:3))) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_viridis_c(option = "C", end = 0.8) +
+  labs(x = "学年", y = "通塾率",
+       color = "出生コーホート\n（小1入学年度）",
+       title = "出生コーホート別の通塾率の変化")
+```
+
+::: {.callout-tip}
+## コーホート別分析の意義
+調査年別の比較では異なる世代を比較しているが，**出生コーホート別**の分析では同じ個人集団の学年による変化を追跡できる．これはパネルデータの強みを活かした分析である．各線は同一コーホートの成長に伴う通塾率の変化を示している．
+:::
+
+```{r}
+# 学年別・父親学歴別の通塾率（信頼区間付き）
+d_long |>
+  drop_na(juku, grade, f_edu) |>
+  filter(grade %in% 1:12) |>
+  summarise(
+    juku_rate = mean(juku, na.rm = TRUE),
+    n = sum(!is.na(juku)),
+    se = sqrt(juku_rate * (1 - juku_rate) / n),
+    ll = juku_rate - 1.96 * se,
+    ul = juku_rate + 1.96 * se,
+    .by = c(grade, f_edu)) |>
+  ggplot(aes(x = grade, y = juku_rate,
+             color = f_edu, fill = f_edu, linetype = f_edu,
+             shape = f_edu, group = f_edu,
+             ymin = ll, ymax = ul)) +
+  geom_ribbon(alpha = 0.15, color = NA) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 1:12,
+                     labels = c(paste0("小", 1:6), paste0("中", 1:3), paste0("高", 1:3))) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_viridis_d(option = "C", end = 0.8) +
+  scale_fill_viridis_d(option = "C", end = 0.8) +
+  labs(x = "学年", y = "通塾率",
+       color = "父親の学歴", fill = "父親の学歴",
+       linetype = "父親の学歴", shape = "父親の学歴",
+       title = "学年別・父親学歴別の通塾率（95%信頼区間付き）")
+```
+
+::: {.callout-tip}
+## 横軸の選択：調査年 vs 学年
+
+- **調査年を横軸**：時代効果（コロナ禍など）を見たいとき，経済指標など年で変化する変数
+- **学年を横軸**：発達や教育段階による変化を見たいとき，通塾・進学希望など学年で変化する変数
+
+調査年と学年の両方を使う場合，一方を横軸，他方を色や形（`color`, `shape`）で表現する．同じ学年でも調査年が異なるデータがあれば，コーホート効果の検討が可能になる．
+:::
+
+### map()を使った学年別分析
+
+`purrr`パッケージの`map()`関数を使うと，グループごとに同じ分析を繰り返し適用できる．ここでは学年別に重回帰分析を行い，係数を比較する．
+
+```{r}
+# 学年別に重回帰分析を実行
+grade_models <- d_long |>
+  filter(grade %in% 1:12) |>
+  drop_na(juku, income, f_edu, sex) |>
+  nest(.by = grade) |>
+  mutate(
+    model = map(data, ~ glm(juku ~ income + f_edu + sex,
+                            data = .x, family = binomial)),
+    result = map(model, ~ tidy(.x, conf.int = TRUE))  # 信頼区間も取得
+  ) |>
+  unnest(result) |>
+  select(grade, term, estimate, std.error, conf.low, conf.high, p.value)
+
+grade_models
+```
+
+```{r}
+# 収入の係数を学年別にプロット（95%信頼区間付き）
+grade_models |>
+  filter(term == "income") |>
+  ggplot(aes(x = grade, y = estimate,
+             ymin = conf.low, ymax = conf.high)) +
+  geom_ribbon(alpha = 0.2) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  scale_x_continuous(breaks = 1:12,
+                     labels = c(paste0("小", 1:6), paste0("中", 1:3), paste0("高", 1:3))) +
+  labs(x = "学年", y = "収入の係数（対数オッズ）",
+       title = "学年別：収入と通塾の関連（95%信頼区間付き）")
+```
+
+::: {.callout-warning}
+## 対数オッズ係数のモデル間比較の注意点
+
+ロジスティック回帰の対数オッズ係数は，厳密にはモデル間で直接比較できない．これは，ロジスティック回帰では残差分散が識別できず，各モデルで異なるスケールになるためである（Mood, 2010）．
+
+グループ間（ここでは学年間）で効果の大きさを比較したい場合は，**平均限界効果（Average Marginal Effects: AME）**を用いることが推奨される．AMEは確率スケールでの効果を表すため，モデル間で直接比較可能である．
+:::
+
+```{r}
+#| label: ame-by-grade
+#| cache: true
+# 平均限界効果（AME）を計算
+# marginaleffectsパッケージを使用
+library(marginaleffects)
+
+# 学年別にAMEを計算
+grade_ame <- d_long |>
+  filter(grade %in% 1:12) |>
+  drop_na(juku, income, f_edu, sex) |>
+  nest(.by = grade) |>
+  mutate(
+    model = map(data, ~ glm(juku ~ income + f_edu + sex,
+                            data = .x, family = binomial)),
+    # 収入のAMEを計算
+    ame = map(model, ~ avg_slopes(.x, variables = "income"))
+  ) |>
+  unnest(ame) |>
+  select(grade, term, estimate, std.error, conf.low, conf.high)
+
+grade_ame
+```
+
+```{r}
+# AMEを学年別にプロット
+grade_ame |>
+  ggplot(aes(x = grade, y = estimate,
+             ymin = conf.low, ymax = conf.high)) +
+  geom_ribbon(alpha = 0.2) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  scale_x_continuous(breaks = 1:12,
+                     labels = c(paste0("小", 1:6), paste0("中", 1:3), paste0("高", 1:3))) +
+  labs(x = "学年", y = "収入の限界効果（確率の変化）",
+       title = "学年別：収入と通塾の関連（平均限界効果）",
+       subtitle = "収入が1単位増加したときの通塾確率の変化")
+```
+
+::: {.callout-tip}
+## map()の利点
+`map()`を使うことで：
+
+- 同じ分析を複数のグループに一括適用できる
+- 結果を整理されたデータフレームとして取得できる
+- グループ間の係数の比較が容易になる
+
+`nest()`でグループごとにデータを分割し，`map()`で各グループにモデルを適用，`unnest()`で結果を展開するのが基本的な流れである．
+:::
+
+
+## パネルデータの分析
+
+### 固定効果モデルの考え方
+
+個人の観察されない異質性（ability, motivation など）を統制するために，固定効果モデルを使用する．
+
+**個人固定効果モデル（one-way）**
+
+$$
+Y_{it} = \alpha_i + \beta X_{it} + \epsilon_{it}
+$$
+
+- $\alpha_i$：個人固定効果（時間によって変化しない個人の特性）
+- $\beta$：関心のあるパラメータ
+
+**個人＋時間固定効果モデル（two-way）**
+
+$$
+Y_{it} = \alpha_i + \lambda_t + \beta X_{it} + \epsilon_{it}
+$$
+
+- $\alpha_i$：個人固定効果（時間によって変化しない個人の特性）
+- $\lambda_t$：時間固定効果（個人によらない時点ごとの影響，例：学習指導要領の改訂，コロナ禍による休校）
+- $\beta$：関心のあるパラメータ
+
+two-way固定効果モデルでは，個人に共通する時間トレンド（例：教育政策の変更やコロナ禍の影響）も統制できる．
+
+### plmパッケージによる固定効果モデル
+
+`plm`パッケージは伝統的なパネルデータ分析用のパッケージである．`pdata.frame()`でパネル構造を指定し，`model = "within"`で固定効果モデルを推定する．
+
+```{r}
+#| eval: false
+# install.packages("plm")
+library(plm)
+
+# パネルデータとして設定
+pdata <- pdata.frame(d_long,
+                     index = c("PanelID", "year"))
+
+# 固定効果モデル（通塾と収入の関連）
+fe_model <- plm(income ~ juku,
+                data = pdata,
+                model = "within")
+summary(fe_model)
+```
+
+### fixestパッケージによる固定効果モデル
+
+`fixest`パッケージは高速で，多くの固定効果を扱える．
+
+```{r}
+#| eval: false
+# install.packages("fixest")
+library(fixest)
+
+# 個人固定効果モデル
+fe_model <- feols(income ~ juku | PanelID, data = d_long)
+summary(fe_model)
+
+# 個人固定効果と年固定効果
+fe_model2 <- feols(income ~ juku | PanelID + year, data = d_long)
+summary(fe_model2)
+
+# 結果の比較
+etable(fe_model, fe_model2)
+```
+
+::: {.callout-tip}
+## fixestの利点
+- 計算が非常に高速（大規模データに最適）
+- 複数の固定効果を簡単に指定できる（`|`の後に`+`で追加）
+- `etable()`で複数モデルの結果を比較できる
+- クラスタロバスト標準誤差が標準で計算される
+:::
+
+
+## データの保存・エクスポート
+
+加工したデータや分析結果を保存する方法を紹介する．
+
+### データフレームの保存
+
+用途に応じてファイル形式を選択する．
+
+```{r}
+#| eval: false
+# CSVファイルとして保存
+write_csv(d_long, here("data", "processed", "d_long.csv"))
+
+# Stataファイル（.dta）として保存
+haven::write_dta(d_long, here("data", "processed", "d_long.dta"))
+
+# RDS形式で保存（R専用，高速・圧縮）
+saveRDS(d_long, here("data", "processed", "d_long.rds"))
+
+# RDS形式で読み込む場合
+# d_long <- readRDS(here("data", "processed", "d_long.rds"))
+```
+
+::: {.callout-tip}
+## ファイル形式の選び方
+| 形式 | 利点 | 欠点 |
+|------|------|------|
+| CSV | 汎用性が高い，他ソフトで開ける | ラベル情報が失われる |
+| DTA | Stataで読める，ラベル保持 | Stata専用 |
+| RDS | 高速，圧縮，R特有の型を保持 | R専用 |
+:::
+
+### 分析結果の保存
+
+`modelsummary()`の`output`引数でファイル形式を指定できる．
+
+```{r}
+#| eval: false
+# modelsummaryで表をファイルに出力
+modelsummary(
+  list("Model 1" = model1, "Model 2" = model2),
+  output = here("tables", "regression_results.html")
+)
+
+# Word形式で出力
+modelsummary(
+  list("Model 1" = model1, "Model 2" = model2),
+  output = here("tables", "regression_results.docx")
+)
+```
+
+### 図の保存
+
+`ggsave()`で様々な形式で保存できる．プレゼン用はPNG，論文投稿用はPDFが一般的である．
+
+```{r}
+#| eval: false
+# 図を作成
+p <- d |>
+  drop_na(f_edu) |>
+  ggplot(aes(x = f_edu, y = vocab_w2_g3)) +
+  geom_boxplot(fill = "#7AD151") +
+  labs(x = "父親の学歴", y = "語彙力スコア")
+
+# PNG形式で保存
+ggsave(here("figures", "vocab_by_fedu.png"), p,
+       width = 6, height = 4, dpi = 300)
+
+# PDF形式で保存（論文向け）
+ggsave(here("figures", "vocab_by_fedu.pdf"), p,
+       width = 6, height = 4)
+```
+
+::: {.callout-tip}
+## ggsave()のポイント
+- `width`と`height`はインチ単位
+- `dpi = 300`で印刷品質（Web用は`dpi = 150`程度でOK）
+- 最後に作成した図は`p`を省略可能（`ggsave("file.png")`）
+:::
+
+
+# まとめ
+
+## 本日学んだこと
+
+1. **準備編**
+   - RStudioの基本操作
+   - プロジェクト管理
+   - データの読み込み
+
+2. **基礎編**
+   - `dplyr`によるデータ操作（`filter`, `select`, `mutate`, `summarise`）
+   - `case_match()`と`case_when()`による変数のリコード
+   - 自作関数の作成
+   - 記述統計の算出
+   - `ggplot2`による可視化
+
+3. **実践編**
+   - クロス表分析とカイ二乗検定
+   - 回帰分析（単回帰・重回帰・交互作用）
+   - ロジスティック回帰と限界効果
+   - `modelsummary`によるモデル比較
+   - パネルデータの作成と分析
+   - データの保存・エクスポート
+
+
+## 発展的内容
+
+本コースで扱いきれなかった発展的なトピックを紹介する．
+
+### サンプリングウェイトの構成
+
+調査データに付与されるウェイトは，一般に以下の3つの要素の積で構成される．
+
+$$w = w_b \times w_r \times w_c$$
+
+| 記号 | 名称 | 説明 |
+|------|------|------|
+| $w_b$ | デザインウェイト | 標本設計により決定．各標本の抽出確率の逆数 |
+| $w_r$ | 回答率調整ウェイト | 調査拒否・未回答による偏りを調整 |
+| $w_c$ | キャリブレーション・ファクタ | 既知の母集団情報（人口総数等）との整合性を調整 |
+
+**デザインウェイト**は，二段抽出の場合，層 $i$ の調査区 $j$ に属する世帯のウェイトは以下で計算される：
+
+$$w_{b_{ij}} = \frac{M_i}{m_i} \times \frac{N_{ij}}{n_{ij}}$$
+
+ここで，$M_i$ は層 $i$ の総調査区数，$m_i$ は標本調査区数，$N_{ij}$ は調査区 $ij$ の総世帯数，$n_{ij}$ は標本世帯数である．
+
+**回答率調整ウェイト**は，標本数 $n_{ij}$ に対して回答数が $n'_{ij}$ の場合：
+
+$$w_{r_{ij}} = \frac{n_{ij}}{n'_{ij}}$$
+
+**キャリブレーション・ファクタ**は，人口予測値等のベンチマークを用いてウェイトを調整する．
+
+::: {.callout-note}
+## ウェイトの提供状況
+公開されるミクロデータには，これらを統合した最終ウェイトのみが提供されることが多い．ウェイトの構成要素が個別に提供されることは稀であり，ウェイトの計算方法は調査の技術資料を参照する必要がある．
+:::
+
+
+### ブートストラップ法とジャックナイフ法
+
+標準誤差や信頼区間の推定に，リサンプリング法が有用である．特に，解析的な標準誤差の計算が困難な場合や，複雑なサンプリングデザインを考慮する場合に用いられる．
+
+#### ブートストラップ法
+
+元の標本から**復元抽出**でリサンプルを繰り返し生成し，統計量の分布を推定する方法である．
+
+```{r}
+#| eval: false
+library(boot)
+
+# ブートストラップ用の関数を定義
+# data: データ，indices: リサンプルのインデックス
+boot_mean <- function(data, indices) {
+  mean(data[indices], na.rm = TRUE)
+}
+
+# ブートストラップの実行（1000回）
+set.seed(123)
+boot_result <- boot(data = d$vocab_w2_g9,
+                    statistic = boot_mean,
+                    R = 1000)
+
+# 結果の確認
+boot_result
+
+# 信頼区間（パーセンタイル法，BCa法など）
+boot.ci(boot_result, type = c("perc", "bca"))
+```
+
+#### ジャックナイフ法
+
+標本サイズを $n$ とするとき，1つの観測値を除外したリサンプル（サイズ $n-1$）を $n$ 組作成し，統計量の分布を推定する方法である．
+
+```{r}
+#| eval: false
+# ジャックナイフ法による標準誤差の推定
+jackknife_se <- function(x) {
+  n <- length(x)
+  x <- x[!is.na(x)]  # 欠損値を除外
+  n <- length(x)
+
+  # 各観測値を1つずつ除外した平均を計算
+  jack_means <- numeric(n)
+  for (i in 1:n) {
+    jack_means[i] <- mean(x[-i])
+  }
+
+  # ジャックナイフ標準誤差
+  se <- sqrt((n - 1) / n * sum((jack_means - mean(jack_means))^2))
+  return(se)
+}
+
+# 使用例
+jackknife_se(d$vocab_w2_g9)
+
+# 比較：通常の標準誤差
+sd(d$vocab_w2_g9, na.rm = TRUE) / sqrt(sum(!is.na(d$vocab_w2_g9)))
+```
+
+::: {.callout-note}
+## ブートストラップ法とジャックナイフ法の比較
+
+| 特徴 | ブートストラップ法 | ジャックナイフ法 |
+|------|-------------------|-----------------|
+| リサンプル数 | 任意（通常1000〜10000） | $n$（観測数と同じ） |
+| 抽出方法 | 復元抽出 | 1つを除外 |
+| 計算量 | 多い | 比較的少ない |
+| 適用範囲 | 広い（複雑な統計量に対応） | 滑らかな統計量向け |
+| バイアス補正 | BCa法などで対応可能 | 可能 |
+:::
+
+#### 回帰分析でのブートストラップ
+
+回帰係数の標準誤差をブートストラップで推定する例：
+
+```{r}
+#| eval: false
+# 回帰係数のブートストラップ
+boot_coef <- function(data, indices) {
+  d_boot <- data[indices, ]
+  model <- lm(vocab_w2_g9 ~ f_edu + income__2015, data = d_boot)
+  return(coef(model))
+}
+
+# 分析用データ（完全ケースのみ）
+d_complete <- d |>
+  select(vocab_w2_g9, f_edu, income__2015) |>
+  na.omit()
+
+# ブートストラップの実行
+set.seed(123)
+boot_reg <- boot(data = d_complete,
+                 statistic = boot_coef,
+                 R = 1000)
+
+# 各係数の信頼区間
+boot.ci(boot_reg, type = "perc", index = 2)  # f_edu専門・短大の係数
+boot.ci(boot_reg, type = "perc", index = 3)  # f_edu大学以上の係数
+```
+
+::: {.callout-tip}
+## リサンプリング法の活用場面
+- 標準誤差の解析的計算が困難な統計量（中央値，四分位範囲など）
+- 非正規分布からの標本
+- 複雑なサンプリングデザイン（クラスタ抽出など）
+- 小標本での信頼区間推定
+:::
+
+
+### 欠損値を考慮した分析
+
+パネルデータでは欠損値（脱落・無回答）が避けられない．リストワイズ削除（完全ケース分析）はサンプルサイズの減少とバイアスの原因になる．**多重代入法（Multiple Imputation）** は，欠損値を複数回代入して不確実性を考慮した分析を行う方法である．
+
+- **Amelia II**：時系列・横断面データに特化した多重代入法．EMアルゴリズムとブートストラップを使用し，高速に処理できる．パネルデータに適している．
+  - パッケージ：`Amelia`
+  - 特徴：時系列構造を考慮，高速，連続変数向け
+
+```r
+library(Amelia)
+# パネルデータの多重代入（5つのデータセットを生成）
+amelia_out <- amelia(d_wide,
+                     m = 5,                    # 代入データセット数
+                     ts = "year",              # 時間変数
+                     cs = "PanelID",           # 個人ID
+                     noms = c("sex", "f_edu")) # 名義変数
+# 代入済みデータの取り出し
+amelia_out$imputations[[1]]  # 1つ目の代入データ
+```
+
+- **mice**：Multivariate Imputation by Chained Equations．変数ごとに条件付き分布を指定し，連鎖方程式で代入する．柔軟性が高く，カテゴリ変数にも対応．
+  - パッケージ：`mice`
+  - 特徴：変数の型に応じた代入方法，柔軟なモデル指定
+
+```r
+library(mice)
+# 多重代入の実行
+mice_out <- mice(d_analysis,
+                 m = 5,           # 代入データセット数
+                 method = "pmm", # 予測平均マッチング
+                 maxit = 10)      # 反復回数
+# 代入データで回帰分析を実行し，結果を統合
+fit <- with(mice_out, lm(vocab_w2_g3 ~ sex + f_edu))
+pooled <- pool(fit)
+summary(pooled)
+```
+
+::: {.callout-note}
+## Rubinのルール（Rubin's rules）
+多重代入法では，複数の代入データセット（通常5〜20個）それぞれで分析を行い，その結果を**Rubinのルール**に基づいて統合（プール）する．
+
+- **点推定値**：各代入データセットの推定値の平均
+- **分散の推定**：代入内分散（within-imputation variance）と代入間分散（between-imputation variance）を組み合わせる
+
+`mice`パッケージの`pool()`関数はRubinのルールを自動的に適用する．
+:::
+
+::: {.callout-tip}
+## Ameliaとmiceの使い分け
+- **Amelia**：パネルデータ，連続変数が多い場合，高速処理が必要な場合
+- **mice**：横断データ，カテゴリ変数が多い場合，柔軟なモデル指定が必要な場合
+:::
+
+
+### 脱落パターンの分析
+
+パネル調査では，調査回を重ねるごとに回答者が減少する（脱落，attrition）．脱落がランダムに生じるのか，それとも特定の属性を持つ人が脱落しやすいのかを確認することは，分析結果のバイアスを評価する上で重要である．
+
+本データには各Waveの回答フラグ（`w1回答フラグ`～`w7回答フラグ`）が含まれており，親子それぞれの回答状況を把握できる．
+
+- 1: 親子とも回答（小1〜3含む）
+- 2: 親のみ回答
+- 3: 子どものみ回答
+- 4: 回答なし
+- 5: 分析対象外
+- 6: 調査対象外（まだ調査に入っていないコーホート等）
+
+```{r}
+# 回答フラグを使って協力パターンを分析
+# 元データから回答フラグを読み込む
+d_raw <- read_dta(here("data", "raw", "1571", "1571.dta"))
+
+# 回答フラグ変数を選択
+d_attrition <- d_raw |>
+  select(PanelID, starts_with("w") & ends_with("回答フラグ")) |>
+  rename(
+    resp_w1 = `w1回答フラグ`,
+    resp_w2 = `w2回答フラグ`,
+    resp_w3 = `w3回答フラグ`,
+    resp_w4 = `w4回答フラグ`,
+    resp_w5 = `w5回答フラグ`,
+    resp_w6 = `w6回答フラグ`,
+    resp_w7 = `w7回答フラグ`
+  )
+
+# 各Waveの回答状況の分布（全カテゴリ）
+d_attrition |>
+  pivot_longer(starts_with("resp_"),
+               names_to = "wave",
+               values_to = "response") |>
+  mutate(
+    wave = parse_number(wave),
+    response_label = case_match(
+      response,
+      1 ~ "親子とも回答",
+      2 ~ "親のみ回答",
+      3 ~ "子のみ回答",
+      4 ~ "回答なし",
+      5 ~ "分析対象外",
+      6 ~ "調査対象外"
+    ) |> factor(levels = c("親子とも回答", "親のみ回答",
+                           "子のみ回答", "回答なし",
+                           "分析対象外", "調査対象外"))
+  ) |>
+  count(wave, response_label) |>
+  ggplot(aes(x = wave, y = n, fill = response_label)) +
+  geom_col(position = "stack") +
+  scale_x_continuous(breaks = 1:7, labels = paste0("W", 1:7)) +
+  scale_fill_viridis_d(option = "C", end = 0.8) +
+  labs(x = "Wave", y = "人数", fill = "回答状況",
+       title = "各Waveの回答状況の分布（全カテゴリ）")
+```
+
+「調査対象外」を除いた調査対象者のみで回答パターンを確認すると，脱落の推移がより明確になる．
+
+```{r}
+# 調査対象者のみ（調査対象外=6を除く）で割合を表示
+d_attrition |>
+  pivot_longer(starts_with("resp_"),
+               names_to = "wave",
+               values_to = "response") |>
+  filter(response != 6) |>  # 調査対象外を除く
+  mutate(
+    wave = parse_number(wave),
+    response_label = case_match(
+      response,
+      1 ~ "親子とも回答",
+      2 ~ "親のみ回答",
+      3 ~ "子のみ回答",
+      4 ~ "回答なし",
+      5 ~ "分析対象外"
+    ) |> factor(levels = c("親子とも回答", "親のみ回答",
+                           "子のみ回答", "回答なし", "分析対象外"))
+  ) |>
+  count(wave, response_label) |>
+  mutate(percent = n / sum(n) * 100, .by = wave) |>
+  ggplot(aes(x = wave, y = percent, fill = response_label)) +
+  geom_col(position = "stack") +
+  geom_text(aes(label = sprintf("%.1f%%", percent)),
+            position = position_stack(vjust = 0.5),
+            size = 3, color = "white") +
+  scale_x_continuous(breaks = 1:7, labels = paste0("W", 1:7)) +
+  scale_fill_viridis_d(option = "C", end = 0.8) +
+  labs(x = "Wave", y = "割合 (%)", fill = "回答状況",
+       title = "各Waveの回答状況の割合")
+```
+
+Wave1で調査対象だった人（回答フラグが1〜5）に限定して，脱落パターンを分析する．「親子とも回答」のケースに限定した分析を行う場合，どの程度サンプルが減少するかを確認する．
+
+```{r}
+# Wave1で調査対象だった人のみを抽出
+d_attrition_w1 <- d_attrition |>
+  filter(resp_w1 != 6)  # Wave1で調査対象外だった人を除く
+
+# 親子とも回答した回数を計算
+d_attrition_w1 <- d_attrition_w1 |>
+  mutate(
+    # 各Waveで親子とも回答したか（1 = 親子とも回答, 0 = それ以外）
+    # 調査対象外(6)の場合も0とする
+    both_w1 = if_else(resp_w1 == 1, 1, 0),
+    both_w2 = if_else(resp_w2 == 1, 1, 0),
+    both_w3 = if_else(resp_w3 == 1, 1, 0),
+    both_w4 = if_else(resp_w4 == 1, 1, 0),
+    both_w5 = if_else(resp_w5 == 1, 1, 0),
+    both_w6 = if_else(resp_w6 == 1, 1, 0),
+    both_w7 = if_else(resp_w7 == 1, 1, 0),
+    # 親子とも回答した総回数
+    n_both = both_w1 + both_w2 + both_w3 + both_w4 +
+             both_w5 + both_w6 + both_w7,
+    # 調査対象だった回数（調査対象外=6以外の回数）
+    n_target = (resp_w1 != 6) + (resp_w2 != 6) + (resp_w3 != 6) +
+               (resp_w4 != 6) + (resp_w5 != 6) + (resp_w6 != 6) + (resp_w7 != 6)
+  )
+
+# 親子とも回答した回数の分布（Wave1調査対象者のみ）
+d_attrition_w1 |>
+  count(n_both) |>
+  mutate(percent = n / sum(n) * 100)
+```
+
+初回調査（Wave1）の属性によって，脱落率に差があるかを検討する．
+
+```{r}
+# Wave1の属性を結合
+d_attrition_w1 <- d_attrition_w1 |>
+  left_join(d |> select(PanelID, sex, f_edu), by = "PanelID")
+
+# 父親学歴別の平均回答回数
+d_attrition_w1 |>
+  drop_na(f_edu) |>
+  summarise(
+    mean_both = mean(n_both, na.rm = TRUE),
+    se = sd(n_both, na.rm = TRUE) / sqrt(n()),
+    ll = mean_both - 1.96 * se,
+    ul = mean_both + 1.96 * se,
+    n = n(),
+    .by = f_edu
+  ) |>
+  ggplot(aes(x = f_edu, y = mean_both, ymin = ll, ymax = ul)) +
+  geom_col(fill = "#3E4A89", alpha = 0.7) +
+  geom_errorbar(width = 0.2) +
+  labs(x = "父親の学歴", y = "親子とも回答した平均回数（7回中）",
+       title = "父親学歴別の平均回答回数（95%信頼区間付き）")
+```
+
+```{r}
+# 脱落と初回特性の関連をロジスティック回帰で検討
+# 「全7回親子とも回答」 vs 「それ以外」
+d_attrition_w1 <- d_attrition_w1 |>
+  mutate(
+    complete = if_else(n_both == 7, 1, 0),
+    f_edu_factor = factor(f_edu)
+  )
+
+# 脱落の予測モデル
+attrition_model <- glm(complete ~ sex + f_edu_factor,
+                       data = d_attrition_w1,
+                       family = binomial)
+summary(attrition_model)
+
+# 結果の表示
+tidy(attrition_model, conf.int = TRUE) |>
+  filter(term != "(Intercept)") |>
+  mutate(
+    odds_ratio = exp(estimate),
+    or_ll = exp(conf.low),
+    or_ul = exp(conf.high)
+  ) |>
+  select(term, odds_ratio, or_ll, or_ul, p.value)
+```
+
+::: {.callout-warning}
+## 脱落分析の解釈
+- オッズ比が1より大きい属性は，完了（全回答）しやすい傾向
+- オッズ比が1より小さい属性は，脱落しやすい傾向
+- 脱落が特定の属性に偏っている場合，リストワイズ削除による分析結果にバイアスが生じる可能性がある
+- 対処法：多重代入法（上記参照），逆確率重み付け（IPW），感度分析
+:::
+
+
+### 多項ロジスティック回帰
+
+従属変数が3カテゴリ以上の名義変数の場合，多項ロジスティック回帰を使用する．`nnet`パッケージの`multinom()`関数が使いやすい．
+
+```{r}
+#| eval: false
+library(nnet)
+
+# 希望進学段階を従属変数とした多項ロジスティック回帰
+# 参照カテゴリは最初のカテゴリになる
+model_multi <- multinom(edu_hope ~ sex + f_edu + income__2015,
+                        data = d)
+
+# 結果の確認
+summary(model_multi)
+
+# broomで整理
+tidy(model_multi, conf.int = TRUE) |>
+  mutate(
+    RRR = exp(estimate),  # 相対リスク比
+    RRR_ll = exp(conf.low),
+    RRR_ul = exp(conf.high)
+  ) |>
+  select(y.level, term, RRR, RRR_ll, RRR_ul, p.value)
+```
+
+::: {.callout-warning}
+## 多項ロジスティック回帰の解釈
+多項ロジスティック回帰の係数は**相対リスク比（Relative Risk Ratio: RRR）**として解釈される．これは「参照カテゴリに対する各カテゴリの相対的なオッズ」を表す．しかし，RRRの直感的な解釈は難しい場合が多い．
+
+実践的には，**限界効果（marginal effects）**を計算して「説明変数が1単位変化したときに各カテゴリを選択する確率がどれだけ変化するか」を示す方が解釈しやすい．
+:::
+
+```{r}
+#| eval: false
+# 限界効果の計算
+library(marginaleffects)
+avg_slopes(model_multi)
+```
+
+
+### 潜在クラス分析
+
+観測されない集団の異質性（サブグループ）を分類する手法である．`poLCA`パッケージを使用する．
+
+```{r}
+#| eval: false
+library(poLCA)
+
+# 潜在クラス分析用のデータ準備
+# カテゴリ変数は1から始まる整数にコードする必要がある
+d_lca <- d |>
+  select(PanelID,
+         item1 = ds0000000244_w1c,  # 授業が楽しい
+         item2 = ds0000000245_w1c,  # 友だちとすごすのが楽しい
+         item3 = ds0000000246_w1c,  # 尊敬できる先生がいる
+         item4 = ds0000000249_w1c,  # 自分のクラスが好き
+         item5 = ds0000000250_w1c   # 自分の学校が好き
+         ) |>
+  mutate(across(item1:item5, ~ recode_missing(.x))) |>
+  drop_na()
+
+# モデル式
+f <- cbind(item1, item2, item3, item4, item5) ~ 1
+
+# 2クラスモデル
+lca2 <- poLCA(f, d_lca, nclass = 2, verbose = FALSE)
+
+# 3クラスモデル
+lca3 <- poLCA(f, d_lca, nclass = 3, verbose = FALSE)
+
+# BICでモデル比較（値が小さいほど良い）
+c(lca2$bic, lca3$bic)
+
+# クラス所属確率
+head(lca2$posterior)
+```
+
+::: {.callout-tip}
+## 潜在クラス分析の活用
+- **異質な集団の発見**：回答パターンから異なるタイプの集団を識別
+- **クラス数の決定**：BICやAICを比較して最適なクラス数を選択
+- **プロファイル分析**：各クラスの特徴を記述し，意味のあるラベルを付与
+:::
+
+
+### 潜在変数モデル
+
+観測されない潜在変数を仮定してモデル化する手法群である．
+
+- **確認的因子分析（CFA）**：複数の観測変数から潜在変数（因子）を測定する．尺度の妥当性検証などに使用
+- **構造方程式モデル（SEM）**：潜在変数間の関係をモデル化する．パス解析と因子分析を統合した枠組み
+- **成長曲線モデル**：個人の変化の軌跡（切片・傾き）を潜在変数として推定し，その個人差を説明する
+
+パッケージ：`lavaan`（SEM, CFA, 成長曲線モデル），`lme4`, `nlme`（成長曲線モデル）
+
+::: {.callout-warning}
+## 潜在変数モデルと因果推論
+これらの手法は変数間の関連構造を記述するものであり，それ自体が因果効果を推定するわけではない．特に**交差遅延モデル（cross-lagged panel model）**は，時間不変の交絡を統制できないため，因果推論には適さないことが指摘されている．因果効果の推定には，固定効果モデルや傾向スコア法など，因果推論に適した手法を選択する必要がある．
+:::
+
+
+### マルチレベルモデル（階層線形モデル）
+
+パネルデータや学校・地域などにネストされたデータでは，マルチレベルモデル（階層線形モデル，混合効果モデル）が有用である．個人レベルと集団レベルの変動を分離し，集団間の異質性を考慮した推定ができる．
+
+```{r}
+#| eval: false
+library(lme4)
+
+# ランダム切片モデル：個人ごとに切片が異なる
+model_ri <- lmer(vocab ~ grade + sex + (1 | PanelID), data = d_long)
+
+# ランダム傾きモデル：個人ごとに切片と傾きが異なる
+model_rs <- lmer(vocab ~ grade + sex + (1 + grade | PanelID), data = d_long)
+
+summary(model_rs)
+```
+
+::: {.callout-tip}
+## マルチレベルモデルと固定効果モデルの違い
+- **マルチレベルモデル**：集団効果（ランダム効果）を正規分布から抽出されたものとしてモデル化．集団間の変動に関心がある場合や，集団レベルの説明変数の効果を推定したい場合に適する
+- **固定効果モデル**：観察されない異質性を完全に統制．集団レベルの効果は推定できないが，内生性への対処として強力
+:::
+
+
+### ベイズ推定
+
+ベイズ推定は，事前分布と尤度から事後分布を求める統計的推論の枠組みである．回帰分析，固定効果モデル，マルチレベルモデル，潜在変数モデルなど，様々な分析手法に適用できる．
+
+#### brmsによるベイズ推定
+
+`brms`パッケージを使うと，Rの回帰モデル構文でベイズ推定が可能である．
+
+```{r}
+#| eval: false
+library(brms)
+
+# 通常の回帰分析をベイズで推定
+model_bayes <- brm(vocab_w2_g3 ~ sex + f_edu + income__2015,
+                   data = d,
+                   family = gaussian(),
+                   seed = 1234)
+
+# 結果の確認
+summary(model_bayes)
+
+# 事後分布の可視化
+plot(model_bayes)
+
+# マルチレベルモデルのベイズ推定
+model_mlm_bayes <- brm(vocab ~ grade + sex + (1 + grade | PanelID),
+                        data = d_long,
+                        family = gaussian(),
+                        seed = 1234)
+```
+
+#### Stanによる直接記述
+
+より柔軟なモデル構築のためには，Stanコードを直接記述することを推奨する．Stanで書くことで，モデルの構造を明示的に理解でき，`brms`では対応しにくい複雑なモデルも実装できる．
+
+```{r}
+#| eval: false
+library(rstan)
+library(cmdstanr)
+
+# Stanコードの例：線形回帰
+stan_code <- "
+data {
+  int<lower=0> N;           // サンプルサイズ
+  int<lower=0> K;           // 説明変数の数
+  matrix[N, K] X;           // 説明変数行列
+  vector[N] y;              // 被説明変数
+}
+
+parameters {
+  vector[K] beta;           // 回帰係数
+  real<lower=0> sigma;      // 残差標準偏差
+}
+
+model {
+  // 事前分布
+  beta ~ normal(0, 10);
+  sigma ~ cauchy(0, 5);
+
+  // 尤度
+  y ~ normal(X * beta, sigma);
+}
+"
+
+# コンパイルと推定
+# stan_model <- stan_model(model_code = stan_code)
+# fit <- sampling(stan_model, data = stan_data)
+```
+
+::: {.callout-tip}
+## brmsとStanの使い分け
+- **brms**：Rの回帰モデル構文でStanモデルを記述できる．初学者にも扱いやすく，多くの分析に対応．内部でStanコードを生成するため，`stancode(model)`で生成されたコードを確認できる
+- **Stan（rstan/cmdstanr）**：Stanコードを直接記述する．モデルの構造を完全に制御でき，より複雑なモデル（カスタム尤度，複雑な階層構造，潜在変数モデルなど）に対応可能
+
+`brms`で始めて，生成されたStanコードを読むことでStanの文法を学び，必要に応じてStanで直接書くようにするとよい．長期的には**Stanで書けるようになることを推奨**する．モデルの構造を深く理解でき，研究の幅が広がる．
+:::
+
+::: {.callout-note}
+## ベイズ推定の利点
+- **事前知識の活用**：先行研究の知見を事前分布として組み込める
+- **不確実性の表現**：点推定だけでなく，パラメータの事後分布全体を得られる
+- **小サンプルでの安定性**：事前分布による正則化効果で，小サンプルでも安定した推定が可能
+- **複雑なモデルへの対応**：最尤法では推定困難なモデルも扱える
+- **マルチレベルモデルとの相性**：グループ数が少ない場合や分散成分の推定が不安定な場合にも頑健
+:::
+
+
+### 因果推論の基礎
+
+因果推論の枠組みでは，**潜在アウトカム（potential outcomes）**を用いて因果効果を定義する．個人$i$が処置を受けた場合のアウトカム$Y_i(1)$と受けなかった場合のアウトカム$Y_i(0)$の差$Y_i(1) - Y_i(0)$が個人レベルの因果効果である．しかし，同一個人について両方のアウトカムを同時に観測することはできない（**因果推論の根本問題**）．
+
+::: {.callout-important}
+## 識別と推定の区別
+因果推論では**識別（identification）**と**推定（estimation）**を区別することが重要である．
+
+- **識別**：観測データから因果効果を定義できるか．どのような仮定のもとで，潜在アウトカムの比較が観測データの比較に置き換えられるか
+- **推定**：識別された量をデータからどのように計算するか
+
+回帰分析を実行すれば何らかの係数は得られるが，それが因果効果として解釈できるかは別問題である．**推定すれば因果分析ができるわけではない**．因果効果の識別には，交絡がないこと（条件付き独立性），処置の割り当てが確率的であること（正値性）などの仮定が必要であり，これらの仮定の妥当性は研究者が実質的な知識に基づいて判断しなければならない．
+:::
+
+::: {.callout-note}
+## 主な識別戦略
+観測データから因果効果を識別するための代表的なアプローチ：
+
+- **選択オブザーバブル**：観測された共変量で条件付けることで交絡を除去できると仮定（回帰調整，マッチング，IPW）
+- **固定効果**：時間不変の交絡因子を個人固定効果として除去
+- **操作変数**：処置には影響するがアウトカムには直接影響しない変数を利用
+- **回帰不連続デザイン**：処置割り当ての閾値付近での比較
+- **差の差法**：処置群と統制群の時間変化の差を比較
+
+いずれの戦略も，特定の仮定のもとでのみ因果効果を識別できる．仮定の妥当性はデータからは検証できず，研究者の判断に委ねられる．
+:::
+
+- **回帰代入モデル**：アウトカムの条件付き期待値をモデル化し，反実仮想を予測する方法
+  - パッケージ：`marginaleffects`
+- **逆確率重み付け（IPW）**：処置を受ける確率（傾向スコア）の逆数で重み付けし，交絡を調整する方法
+  - パッケージ：`WeightIt`
+- **二重にロバストな方法（AIPW）**：回帰モデルとIPWを組み合わせ，どちらか一方が正しければ一致推定量となる方法
+  - パッケージ：`AIPW`, `DoubleML`
+
+### 因果推論の発展
+
+- **媒介分析**：処置が媒介変数を通じてアウトカムに影響する経路（間接効果）を分解する分析．
+  - パッケージ：`mediation`, `CMAverse`, `rwrmed`
+- **複数の処置がある変数**：3カテゴリ以上の処置変数や，連続的な処置変数を扱う因果推論の手法．
+  - パッケージ：`ltmle`
+
+### 機械学習による予測
+
+- **SuperLearner**：複数の機械学習アルゴリズムを組み合わせて最適な予測モデルを構築するアンサンブル学習法．因果推論との組み合わせ（TMLE等）にも活用される．
+  - パッケージ：`SuperLearner`, `sl3`
+
+### 研究の透明性と再現性
+
+二次分析においても，研究の透明性と再現可能性を高める取り組みが求められている．
+
+- **データ管理計画（DMP: Data Management Plan）**：研究データの収集，管理，共有，保存に関する計画を事前に文書化する．研究開始前にデータの取り扱い方針を明確にすることで，分析の一貫性と再現性を担保する．
+  - 二次分析では，使用するデータの出典，変数の選択基準，前処理の手順を明記することが重要
+  - 日本学術振興会の科研費申請でもDMPの提出が求められる場合がある
+
+- **事前登録（Preregistration）**：分析計画を事前に登録し，研究の仮説・分析手法を固定する．結果を見てから仮説を後付けするHARKing（Hypothesizing After the Results are Known）を防ぐ．
+  - プラットフォーム：[OSF](https://osf.io/)，[AsPredicted](https://aspredicted.org/)
+  - 二次分析でも，どの変数をどのように分析するかを事前に登録することで，探索的分析と確証的分析を区別できる
+
+::: {.callout-tip}
+## 事前登録の実践
+二次分析で事前登録を行う場合，以下の項目を含めるとよい：
+
+1. 使用するデータセットと対象年次
+2. 分析対象のサブサンプル（学年，性別等の限定条件）
+3. 主要な変数の定義（どの変数をどう加工するか）
+4. 検定する仮説と統計モデル
+5. 有意水準と多重比較の調整方法
+:::
+
+### パッケージの中身から学ぶ
+
+Rの関数がどのように実装されているかを確認することで，統計手法の理解を深めることができる．
+
+```{r}
+#| eval: false
+# 関数名を()なしで入力すると中身が表示される
+mean
+```
+
+`UseMethod("mean")`のように表示される場合は，`methods()`で具体的なメソッドを確認する．
+
+```{r}
+#| eval: false
+# 利用可能なメソッドを確認
+methods(mean)
+
+# デフォルトのメソッドを確認
+mean.default
+
+# getAnywhere()でも確認できる
+getAnywhere(mean.default)
+```
+
+パッケージ内の非公開関数（エクスポートされていない関数）は`:::`で参照できる．
+
+```{r}
+#| eval: false
+# パッケージ名:::関数名 で非公開関数を参照
+# 例：DescToolsパッケージのOddsRatio関数の中身
+DescTools:::OddsRatio.default
+```
+
+::: {.callout-tip}
+## 関数の中身を読むメリット
+- 統計手法の計算過程を具体的に理解できる
+- デフォルトの設定値や前提条件を確認できる
+- 自分で関数を作成する際の参考になる
+- パッケージのバグや想定外の挙動を発見できることがある
+:::
+
+
+## 参考資料
+
+### 書籍
+
+- 松村優哉ほか（2021）『改訂2版 RユーザのためのRStudio[実践]入門』技術評論社
+- Hadley Wickham・Garrett Grolemund（2017）『Rではじめるデータサイエンス』オライリー・ジャパン
+
+### オンライン
+
+- [R for Data Science (2e)](https://r4ds.hadley.nz/)：tidyverseを使ったデータ分析の入門書（無料）
+- [Quarto](https://quarto.org/)：Quarto公式ドキュメント
+- [ggplot2公式サイト](https://ggplot2.tidyverse.org/)：関数リファレンスと作例
+- [CRAN Task Views](https://cran.r-project.org/web/views/)：分野別のパッケージ一覧
+
+
+## データの利用について
+
+- 本講義で使用したSSJデータアーカイブのデータは，3月中に削除すること
+- 研究目的での継続利用を希望される場合は，SSJデータアーカイブに申請すること
+- [https://csrda.iss.u-tokyo.ac.jp/](https://csrda.iss.u-tokyo.ac.jp/)
+
+## 寄付について
+
+- 社会科学データサイエンスの基盤構築基金
+- <https://utf.u-tokyo.ac.jp/project/pjt202>
+
+
+# 付録A：各Waveの職業階層変数の作成
+
+本文では2015年（W1）の職業・就業形態のみを用いたが，パネルデータの特性を活かすために各Waveの職業階層変数を作成する方法を示す．
+
+## 各Waveの変数作成
+
+本文と同じリコード処理を各年度に適用する．変数名は年度ベース（例：`f_occ__2016`，`f_class__2016`）とする．
+
+```{r}
+# 2016年（W2）の父親の職種
+d <- d |>
+  mutate(
+    f_occ__2016 = case_match(
+      zap_labels(PFworkjob16),
+      1 ~ "事務・営業",
+      2 ~ "販売・サービス",
+      3 ~ "技能・労務",
+      4 ~ "保安",
+      5 ~ "運輸",
+      6 ~ "農林漁業",
+      7 ~ "専門・技術",
+      8 ~ "管理職",
+      c(9, 10) ~ NA,
+      .default = NA
+    ),
+    f_occ__2016 = factor(f_occ__2016)
+  )
+
+# 2016年（W2）の父親の就業形態
+d <- d |>
+  mutate(
+    f_emp__2016 = case_match(
+      zap_labels(PFworktype16),
+      1 ~ "正規雇用",
+      c(2, 3, 4) ~ "非正規雇用",
+      5 ~ "自営業",
+      c(6, 8) ~ NA,
+      7 ~ "無職",
+      .default = NA
+    ),
+    f_emp__2016 = if_else(zap_labels(PFworktype16) == 8888, "父親なし", f_emp__2016),
+    f_emp__2016 = factor(f_emp__2016)
+  )
+
+# 2016年（W2）の父親の職業階層
+d <- d |>
+  mutate(
+    f_class__2016 = case_when(
+      f_occ__2016 == "管理職" & f_emp__2016 %in% c("正規雇用", "自営業") ~ "専門・管理職",
+      f_occ__2016 == "専門・技術" & f_emp__2016 %in% c("正規雇用", "自営業") ~ "専門・管理職",
+      f_occ__2016 == "事務・営業" & f_emp__2016 == "正規雇用" ~ "事務・販売職",
+      f_occ__2016 == "販売・サービス" & f_emp__2016 == "正規雇用" ~ "事務・販売職",
+      f_emp__2016 == "自営業" ~ "自営業",
+      f_occ__2016 == "農林漁業" & f_emp__2016 == "自営業" ~ "自営業",
+      f_occ__2016 %in% c("技能・労務", "運輸", "保安") & f_emp__2016 == "正規雇用" ~ "マニュアル",
+      f_occ__2016 == "農林漁業" & f_emp__2016 == "正規雇用" ~ "マニュアル",
+      f_emp__2016 == "非正規雇用" ~ "非正規雇用",
+      f_emp__2016 == "無職" ~ "無職",
+      f_emp__2016 == "父親なし" ~ "父親なし",
+      .default = NA
+    ),
+    f_class__2016 = factor(f_class__2016, levels = c(
+      "専門・管理職", "事務・販売職", "自営業",
+      "マニュアル", "非正規雇用", "無職", "父親なし"
+    ))
+  )
+
+d |>
+  count(f_class__2016) |>
+  mutate(pct = n / sum(n) * 100)
+```
+
+同様に，他の年度（2017〜2021年）や母親についても作成できる．
+
+## 職業階層の変化の検出
+
+本文で作成した`f_class`（2015年）と付録で作成した`f_class__2016`を使って，職業階層の変化を検出できる．
+
+```{r}
+# 2015年から2016年への変化
+d <- d |>
+  mutate(
+    f_class_changed = f_class != f_class__2016 &
+                      !is.na(f_class) & !is.na(f_class__2016)
+  )
+
+# 変化した件数と割合
+d |>
+  filter(!is.na(f_class) & !is.na(f_class__2016)) |>
+  count(f_class_changed) |>
+  mutate(pct = n / sum(n) * 100)
+
+# どの階層間の移動が多いか（件数と割合）
+d |>
+  filter(f_class_changed == TRUE) |>
+  count(f_class, f_class__2016, sort = TRUE) |>
+  mutate(pct = n / sum(n) * 100) |>
+  head(10)
+```
+
+::: {.callout-note}
+## 職業階層の変化を用いた分析例
+- 親の失業（マニュアル→無職）が子どもの学力に与える影響
+- 母親の就業開始（無職→非正規雇用）と子どもの生活時間の変化
+- 親の昇進（マニュアル→専門・管理職）と教育投資の変化
+:::
+
+
+# 付録B：中学受験に関する変数
+
+パネルデータの特性を活かした分析例として，中学受験に関する変数を取り上げる．
+
+## 中学受験関連変数の確認
+
+このデータセットには，保護者調査で中学受験に関する質問が含まれている．
+
+- `ds0000000187_w*p`：中学受験予定（小学生の保護者への質問）
+- `ds0000000181_w*p`：中学受験有無（中学生の保護者への質問）
+
+::: {.callout-warning}
+## 分析対象の限定
+中学受験に関する質問は，対象となる学年が限られている．
+
+- **中学受験予定**：小学1〜6年生（学年1-6）の保護者に質問
+- **中学受験有無**：中学1〜3年生（学年7-9）の保護者に質問
+
+したがって，分析対象は限定されたサンプルとなる点に注意が必要である．
+:::
+
+```{r}
+# W1（2015年）の中学受験有無（中学生の保護者）
+# as_factor()で値ラベルをそのままfactorに変換し，不要なカテゴリをNAに
+d <- d |>
+  mutate(
+    juken_result__2015 = as_factor(ds0000000181_w1p),
+    juken_result__2015 = na_if(juken_result__2015, "質問なし"),
+    juken_result__2015 = na_if(juken_result__2015, "非該当"),
+    juken_result__2015 = na_if(juken_result__2015, "無回答・不明"),
+    juken_result__2015 = fct_drop(juken_result__2015)
+  )
+
+# 学年7-9（中学生）に限定して確認
+d |>
+  filter(`w1学年` %in% 7:9) |>
+  count(juken_result__2015) |>
+  mutate(pct = n / sum(n) * 100)
+```
+
+## 全ウェーブを使った出生コーホート別の中学受験率
+
+各ウェーブの中学受験有無を使って，出生コーホート（出生年度）別に中学受験率を算出する．中学1年生になる年度は`birth_year + 13`で計算できる．
+
+中学受験有無は中学生の保護者に質問されるため，W1時点で中学生だった2000-2002年生まれはW1で，それ以降の出生コーホートは中1になった時点のウェーブでデータを取得できる．
+
+| 出生年度 | 中1になる年度 | 該当ウェーブ | 備考 |
+|----------|--------------|--------------|------|
+| 2000 | 2013 | W1 | W1時点で中3 |
+| 2001 | 2014 | W1 | W1時点で中2 |
+| 2002 | 2015 | W1 | W1時点で中1 |
+| 2003 | 2016 | W2 | |
+| 2004 | 2017 | W3 | |
+| 2005 | 2018 | W4 | |
+| 2006 | 2019 | W5 | |
+| 2007 | 2020 | W6 | |
+| 2008 | 2021 | W7 | |
+
+```{r}
+# 各ウェーブの中学受験有無を変換
+d <- d |>
+  mutate(
+    # W2-W7の中学受験有無をas_factorで変換
+    juken_result__2016 = as_factor(ds0000000181_w2p),
+    juken_result__2017 = as_factor(ds0000000181_w3p),
+    juken_result__2018 = as_factor(ds0000000181_w4p),
+    juken_result__2019 = as_factor(ds0000000181_w5p),
+    juken_result__2020 = as_factor(ds0000000181_w6p),
+    juken_result__2021 = as_factor(ds0000000181_w7p)
+  )
+
+# 出生コーホート別に中学受験有無を統合
+# 中1になる年度（birth_year + 13）に応じて該当するウェーブの値を取得
+d <- d |>
+  mutate(
+    # 中1になる年度
+    jhs_entry_year = birth_year + 13,
+    # 該当ウェーブの中学受験有無を取得
+    juken_result = case_when(
+      jhs_entry_year <= 2015 ~ juken_result__2015,
+      jhs_entry_year == 2016 ~ juken_result__2016,
+      jhs_entry_year == 2017 ~ juken_result__2017,
+      jhs_entry_year == 2018 ~ juken_result__2018,
+      jhs_entry_year == 2019 ~ juken_result__2019,
+      jhs_entry_year == 2020 ~ juken_result__2020,
+      jhs_entry_year == 2021 ~ juken_result__2021,
+      .default = NA
+    ),
+    # 中学受験したかどうかの二値変数
+    juken_did = case_when(
+      juken_result == "中学受験した" ~ 1,
+      juken_result == "中学受験をした" ~ 1,
+      juken_result %in% c("準備をしたが途中でやめた", "中学受験の準備をしたが，途中でやめた",
+                          "考えたがしなかった", "中学受験を考えたが，しなかった",
+                          "考えなかった", "中学受験は考えなかった") ~ 0,
+      .default = NA
+    )
+  )
+
+# 出生コーホート別の中学受験率
+d |>
+  drop_na(juken_did, birth_year) |>
+  group_by(birth_year) |>
+  summarise(
+    n = sum(!is.na(juken_did)),
+    juken_rate = mean(juken_did, na.rm = TRUE) * 100
+  )
+```
+
+```{r}
+# 父親の学歴別の中学受験率
+d |>
+  drop_na(juken_did, f_edu) |>
+  group_by(f_edu) |>
+  summarise(
+    n = sum(!is.na(juken_did)),
+    juken_rate = mean(juken_did, na.rm = TRUE) * 100
+  )
+```
+
+```{r}
+# 父親の職業階層別の中学受験率
+d |>
+  drop_na(juken_did, f_class) |>
+  group_by(f_class) |>
+  summarise(
+    n = sum(!is.na(juken_did)),
+    juken_rate = mean(juken_did, na.rm = TRUE) * 100
+  )
+```
+
+## 中学受験率の可視化
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+# 出生コーホート別・父親の学歴別の中学受験率（信頼区間付き）
+d |>
+  drop_na(juken_did, f_edu, birth_year) |>
+  filter(birth_year >= 2000 & birth_year <= 2008) |>
+  group_by(birth_year, f_edu) |>
+  summarise(
+    n = sum(!is.na(juken_did)),
+    juken_rate = mean(juken_did, na.rm = TRUE),
+    se = sqrt(juken_rate * (1 - juken_rate) / n),
+    ci_lower = juken_rate - 1.96 * se,
+    ci_upper = juken_rate + 1.96 * se,
+    .groups = "drop"
+  ) |>
+  mutate(
+    juken_rate = juken_rate * 100,
+    ci_lower = ci_lower * 100,
+    ci_upper = ci_upper * 100
+  ) |>
+  ggplot(aes(x = birth_year, y = juken_rate, color = f_edu,
+             shape = f_edu, linetype = f_edu)) +
+  geom_line() +
+  geom_point(size = 2) +
+  geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, fill = f_edu),
+              alpha = 0.2, color = NA) +
+  scale_x_continuous(breaks = 2000:2008) +
+  scale_color_viridis_d(option = "C", end = 0.8) +
+  scale_fill_viridis_d(option = "C", end = 0.8) +
+  labs(
+    x = "出生年度",
+    y = "中学受験率（%）",
+    color = "父親の学歴",
+    fill = "父親の学歴",
+    shape = "父親の学歴",
+    linetype = "父親の学歴",
+    title = "出生コーホート別・父親の学歴別の中学受験率",
+    subtitle = "95%信頼区間付き"
+  ) +
+  ylim(0, 50)
+```
+
+::: {.callout-note}
+## 中学受験を用いた発展的な分析例
+- 中学受験経験と中学校での学力・学習時間の関連
+- 受験予定の変化（やめた/新たに始めた）と家庭環境の変化
+- 中学受験と教育費支出の関連
+- 兄弟姉妹の有無と中学受験率
+:::
+
+
+## 付録C：家族構成に関する変数
+
+配偶者の有無，子ども人数，出生順位など，家族構成に関する変数を作成する．
+
+- **時間不変の変数**：出生順位，第一子かどうか（調査対象児の属性）
+- **時変の変数**：配偶者の有無，子どもの人数，一人っ子かどうか（家族状況は変化しうる）
+
+### 出生順位（時間不変）
+
+出生順位は調査対象児の属性であり，時間によって変化しない．W2以降に追加されたコーホートもあるため，`coalesce()`で最初に得られた値を採用する．
+
+```{r}
+# 各Waveの出生順位を確認（W1）
+d |>
+  count(ds0000000079_w1p) |>
+  mutate(pct = n / sum(n) * 100)
+
+# 時間不変の出生順位変数を作成
+# coalesce()で最初のWaveの値を優先的に採用
+d <- d |>
+  mutate(
+    # 各Waveの出生順位（欠損値処理）
+    birth_order_w1 = na_if(ds0000000079_w1p, 7777) |> na_if(9999),
+    birth_order_w2 = na_if(ds0000000079_w2p, 7777) |> na_if(9999),
+    birth_order_w3 = na_if(ds0000000079_w3p, 7777) |> na_if(9999),
+    birth_order_w4 = na_if(ds0000000079_w4p, 7777) |> na_if(9999),
+    birth_order_w5 = na_if(ds0000000079_w5p, 7777) |> na_if(9999),
+    birth_order_w6 = na_if(ds0000000079_w6p, 7777) |> na_if(9999),
+    birth_order_w7 = na_if(ds0000000079_w7p, 7777) |> na_if(9999),
+    # 最初のWaveの値を採用
+    birth_order = coalesce(birth_order_w1, birth_order_w2, birth_order_w3,
+                           birth_order_w4, birth_order_w5, birth_order_w6, birth_order_w7)
+  ) |>
+  select(-starts_with("birth_order_w"))  # 作業用変数を削除
+
+# 確認
+d |>
+  count(birth_order) |>
+  mutate(pct = n / sum(n) * 100)
+```
+
+### 第一子かどうか（時間不変）
+
+```{r}
+# 第一子フラグを作成（出生順位から派生）
+d <- d |>
+  mutate(
+    first_child = case_when(
+      birth_order == 1 ~ 1,
+      birth_order >= 2 ~ 0,
+      .default = NA
+    )
+  )
+
+# 確認
+d |>
+  count(first_child) |>
+  mutate(pct = n / sum(n) * 100)
+```
+
+### 配偶者の有無（時変）
+
+配偶者の有無は離婚・再婚などにより変化しうるため，各Waveで変数を作成する．
+
+```{r}
+# 配偶者の有無（各Wave）
+d <- d |>
+  mutate(
+    spouse__2015 = case_match(ds0000000025_w1p, 1 ~ 1, 2 ~ 0, .default = NA),
+    spouse__2016 = case_match(ds0000000025_w2p, 1 ~ 1, 2 ~ 0, .default = NA),
+    spouse__2017 = case_match(ds0000000025_w3p, 1 ~ 1, 2 ~ 0, .default = NA),
+    spouse__2018 = case_match(ds0000000025_w4p, 1 ~ 1, 2 ~ 0, .default = NA),
+    spouse__2019 = case_match(ds0000000025_w5p, 1 ~ 1, 2 ~ 0, .default = NA),
+    spouse__2020 = case_match(ds0000000025_w6p, 1 ~ 1, 2 ~ 0, .default = NA),
+    spouse__2021 = case_match(ds0000000025_w7p, 1 ~ 1, 2 ~ 0, .default = NA)
+  )
+
+# W1の確認
+d |>
+  count(spouse__2015) |>
+  mutate(pct = n / sum(n) * 100)
+```
+
+### 子どもの人数（時変）
+
+子どもの人数は増加しうるため，各Waveで変数を作成する．
+
+```{r}
+# 子どもの人数（各Wave）
+d <- d |>
+  mutate(
+    n_children__2015 = na_if(ds0000000057_w1p, 7777) |> na_if(9999),
+    n_children__2016 = na_if(ds0000000057_w2p, 7777) |> na_if(9999),
+    n_children__2017 = na_if(ds0000000057_w3p, 7777) |> na_if(9999),
+    n_children__2018 = na_if(ds0000000057_w4p, 7777) |> na_if(9999),
+    n_children__2019 = na_if(ds0000000057_w5p, 7777) |> na_if(9999),
+    n_children__2020 = na_if(ds0000000057_w6p, 7777) |> na_if(9999),
+    n_children__2021 = na_if(ds0000000057_w7p, 7777) |> na_if(9999)
+  )
+
+# W1の確認
+d |>
+  count(n_children__2015) |>
+  mutate(pct = n / sum(n) * 100)
+```
+
+### 一人っ子かどうか（時変）
+
+一人っ子かどうかは子どもの人数から派生し，弟妹の誕生により変化しうる．
+
+```{r}
+# 一人っ子フラグ（各Wave）
+d <- d |>
+  mutate(
+    only_child__2015 = case_when(n_children__2015 == 1 ~ 1, n_children__2015 >= 2 ~ 0, .default = NA),
+    only_child__2016 = case_when(n_children__2016 == 1 ~ 1, n_children__2016 >= 2 ~ 0, .default = NA),
+    only_child__2017 = case_when(n_children__2017 == 1 ~ 1, n_children__2017 >= 2 ~ 0, .default = NA),
+    only_child__2018 = case_when(n_children__2018 == 1 ~ 1, n_children__2018 >= 2 ~ 0, .default = NA),
+    only_child__2019 = case_when(n_children__2019 == 1 ~ 1, n_children__2019 >= 2 ~ 0, .default = NA),
+    only_child__2020 = case_when(n_children__2020 == 1 ~ 1, n_children__2020 >= 2 ~ 0, .default = NA),
+    only_child__2021 = case_when(n_children__2021 == 1 ~ 1, n_children__2021 >= 2 ~ 0, .default = NA)
+  )
+
+# W1の確認
+d |>
+  count(only_child__2015) |>
+  mutate(pct = n / sum(n) * 100)
+```
+
+::: {.callout-note}
+## 家族構成変数を用いた分析例
+- 一人っ子と複数きょうだいでの教育投資の違い
+- 出生順位と学力・進学希望の関連
+- きょうだい数と通塾率の関連
+- ひとり親世帯と両親世帯での教育格差
+- 弟妹の誕生が学業成績に与える影響（固定効果モデル）
+:::
+
+# 付録D：メタデータの管理とコードブック作成
+
+Rでは，SPSSやStataと異なり，変数ラベルや値ラベルがデータに埋め込まれていない．そのため，メタデータの管理とコードブック作成は分析者自身が行う必要がある．
+
+## 変数ラベルと値ラベルの付与
+
+`labelled`パッケージを使用して，変数にラベルを付与できる．
+
+```{r}
+#| eval: false
+library(labelled)
+
+# 変数ラベルの付与
+var_label(d$vocab_w1_g7) <- "語彙スコア（中1）"
+var_label(d$juku__2015) <- "通塾の有無（2015年）"
+
+# 複数変数に一括で付与
+var_label(d) <- list(
+  vocab_w1_g7 = "語彙スコア（中1）",
+  vocab_w2_g9 = "語彙スコア（中3）",
+  juku__2015 = "通塾の有無（2015年）",
+  f_edu = "父親学歴"
+)
+
+# 値ラベルの付与
+val_labels(d$juku__2015) <- c("通塾なし" = 0, "通塾あり" = 1)
+
+# 値ラベルの確認
+val_labels(d$juku__2015)
+```
+
+::: {.callout-tip}
+## havenで読み込んだStataファイルのラベル
+`haven::read_dta()`で読み込んだデータには，すでにStataの変数ラベル・値ラベルが`labelled`形式で付与されている．`var_label()`や`val_labels()`で確認できる．
+:::
+
+## コードブックの生成
+
+### sjPlotパッケージ
+
+`sjPlot::view_df()`は，データフレームの変数一覧をHTML形式で出力する．
+
+```{r}
+#| eval: false
+library(sjPlot)
+
+# HTMLでコードブックを表示（ブラウザで開く）
+view_df(d)
+
+# HTMLファイルとして保存
+view_df(d, file = "codebook.html")
+```
+
+### codebookパッケージ
+
+より詳細なコードブックを生成する．
+
+```{r}
+#| eval: false
+library(codebook)
+
+# Rmarkdownベースのコードブック生成
+codebook(d)
+```
+
+### 自作のコードブック関数
+
+シンプルなコードブックを自作することもできる．
+
+```{r}
+#| eval: false
+# 変数一覧をデータフレームとして作成
+make_codebook <- function(data) {
+  tibble::tibble(
+    変数名 = names(data),
+    ラベル = purrr::map_chr(data, ~{
+      lbl <- labelled::var_label(.)
+      if (is.null(lbl)) NA_character_ else lbl
+    }),
+    型 = purrr::map_chr(data, ~class(.)[1]),
+    欠損数 = purrr::map_int(data, ~sum(is.na(.))),
+    ユニーク数 = purrr::map_int(data, ~dplyr::n_distinct(., na.rm = TRUE))
+  )
+}
+
+# コードブック作成
+cb <- make_codebook(d)
+
+# HTMLテーブルとして表示
+knitr::kable(cb)
+
+# CSVとして保存
+readr::write_csv(cb, "codebook.csv")
+```
+
+### skimrパッケージ
+
+変数の記述統計を含む要約を作成する．
+
+```{r}
+#| eval: false
+library(skimr)
+
+# データの要約
+skim(d)
+
+# 特定の変数のみ
+d |>
+  select(vocab_w1_g7, vocab_w2_g9, juku__2015) |>
+  skim()
+```
+
+## 値ラベルの一覧表示
+
+```{r}
+#| eval: false
+# 特定変数の値ラベルを確認
+labelled::val_labels(d$f_edu)
+
+# すべてのlabelled変数の値ラベルを取得
+labelled::look_for(d)
+
+# キーワードで変数を検索
+labelled::look_for(d, "学歴")
+```
+
+::: {.callout-note}
+## `look_for()`関数
+`labelled::look_for()`はStataの`lookfor`コマンドに相当し，変数名やラベルからキーワード検索ができる．大規模データで特定の変数を探す際に便利．
+:::
+
+
+
+
+## メタデータ付きデータの保存
+
+```{r}
+#| eval: false
+# Stata形式で保存（ラベル情報を保持）
+haven::write_dta(d, "data_with_labels.dta")
+
+# SPSS形式で保存
+haven::write_sav(d, "data_with_labels.sav")
+
+# RDS形式で保存（R専用だがすべての属性を保持）
+saveRDS(d, "data_with_labels.rds")
+```
+
+::: {.callout-warning}
+## CSV保存時の注意
+`write_csv()`でCSV形式に保存すると，変数ラベル・値ラベルの情報は失われる．メタデータを保持したい場合は，Stata/SPSS形式かRDS形式で保存する．
+:::
+
+## データクリーニングの記録
+
+分析の再現性のため，データクリーニングの手順はスクリプトとして保存する．
+
+```{r}
+#| eval: false
+# cleaning.R の例
+library(tidyverse)
+library(haven)
+library(labelled)
+
+# 元データ読み込み
+d_raw <- read_dta("data/raw/original.dta")
+
+# クリーニング処理
+d <- d_raw |>
+  # 欠損値コードをNAに変換
+  mutate(across(where(is.numeric), ~na_if(., 9999))) |>
+  mutate(across(where(is.numeric), ~na_if(., 8888))) |>
+  mutate(across(where(is.numeric), ~na_if(., 7777))) |>
+  # 新変数の作成
+
+  mutate(
+    f_edu = case_match(
+      father_education,
+      1:2 ~ "中学・高校",
+      3:4 ~ "専門・短大",
+      5:6 ~ "大学以上"
+    ) |> factor(levels = c("中学・高校", "専門・短大", "大学以上"))
+  )
+
+# 変数ラベルの付与
+var_label(d$f_edu) <- "父親学歴（3区分）"
+
+# クリーニング済みデータの保存
+write_dta(d, "data/processed/cleaned.dta")
+saveRDS(d, "data/processed/cleaned.rds")
+```
+
+::: {.callout-tip}
+## データクリーニングのベストプラクティス
+1. 元データは絶対に上書きしない（`data/raw/`に保管）
+2. クリーニング手順はすべてスクリプトに記録
+3. クリーニング済みデータは別フォルダに保存（`data/processed/`）
+4. 変数の作成・変換の理由をコメントで記録
+5. コードブックも一緒に更新する
+:::
+
+# 付録E：base Rのapply系関数
+
+Rには`apply`系と呼ばれる関数群があり，リストやベクトルの各要素に関数を適用する．本セミナーではtidyverseを中心に紹介しているが，既存のコードを読む際にapply系関数に遭遇することも多いため，ここで簡単に紹介する．
+
+## 主要なapply系関数
+
+| 関数 | 用途 | 戻り値 |
+|------|------|--------|
+| `lapply()` | リスト/ベクトルの各要素に関数を適用 | リスト |
+| `sapply()` | `lapply()`と同じだが結果を簡略化 | ベクトル/行列 |
+| `tapply()` | グループごとに関数を適用 | 配列 |
+| `apply()` | 行列/配列の行または列に関数を適用 | ベクトル/行列 |
+| `mapply()` | 複数のリスト/ベクトルを並列に処理 | リスト/ベクトル |
+
+## lapply()とsapply()
+
+`lapply()`はリストやベクトルの各要素に関数を適用し，結果をリストで返す．`sapply()`は結果を可能な限りベクトルや行列に簡略化する．
+
+```{r}
+#| eval: false
+# lapply: 結果はリスト
+lapply(1:3, function(x) x^2)
+# [[1]]
+# [1] 1
+# [[2]]
+# [1] 4
+# [[3]]
+# [1] 9
+
+# sapply: 結果をベクトルに簡略化
+sapply(1:3, function(x) x^2)
+# [1] 1 4 9
+
+# データフレームの各列に適用（数値列の平均）
+sapply(mtcars[, 1:4], mean)
+#      mpg      cyl     disp       hp
+# 20.09062  6.18750 230.72188 146.68750
+```
+
+## tapply()
+
+`tapply()`はグループごとに関数を適用する．tidyverseの`summarise(.by = ...)`に相当する．
+
+```{r}
+#| eval: false
+# グループ別の平均
+tapply(mtcars$mpg, mtcars$cyl, mean)
+#        4        6        8
+# 26.66364 19.74286 15.10000
+
+# tidyverseでの同等の処理
+mtcars |>
+  summarise(mean_mpg = mean(mpg), .by = cyl)
+```
+
+## apply()
+
+`apply()`は行列やデータフレームの行（`MARGIN = 1`）または列（`MARGIN = 2`）に関数を適用する．
+
+```{r}
+#| eval: false
+# 行列の作成
+m <- matrix(1:6, nrow = 2)
+#      [,1] [,2] [,3]
+# [1,]    1    3    5
+# [2,]    2    4    6
+
+# 各行の合計（MARGIN = 1）
+apply(m, 1, sum)
+# [1]  9 12
+
+# 各列の合計（MARGIN = 2）
+apply(m, 2, sum)
+# [1] 3 7 11
+```
+
+## tidyverseとの対応
+
+apply系関数はtidyverseの関数で置き換えられる場合が多い．
+
+| base R | tidyverse |
+|--------|-----------|
+| `lapply(x, f)` | `purrr::map(x, f)` |
+| `sapply(x, f)` | `purrr::map_dbl(x, f)`，`map_chr(x, f)` 等 |
+| `tapply(x, g, f)` | `summarise(f(x), .by = g)` |
+| `apply(df, 2, f)` | `summarise(across(everything(), f))` |
+| `mapply(f, x, y)` | `purrr::map2(x, y, f)` |
+
+```{r}
+#| eval: false
+# sapply vs purrr::map_dbl
+sapply(1:3, function(x) x^2)
+purrr::map_dbl(1:3, \(x) x^2)
+
+# tapply vs summarise
+tapply(d$vocab_w2_g3, d$sex, mean, na.rm = TRUE)
+d |> summarise(mean = mean(vocab_w2_g3, na.rm = TRUE), .by = sex)
+```
+
+::: {.callout-tip}
+## どちらを使うべきか
+- tidyverseを使ったコードを書く場合は，`purrr`や`dplyr`の関数を使う方が一貫性がある
+- 既存のbase Rコードを読む・修正する場合は，apply系関数の理解が必要
+- パフォーマンスが重要な場合は，ベクトル化された演算（`rowSums()`，`colMeans()`等）を優先する
+:::
+
+# 付録F：主要なアウトカム変数の作成
+
+本データセットに含まれる主要なアウトカム変数を整理し，分析に使いやすい形に変数化する．これらの変数は教育社会学・発達心理学の研究で頻繁に用いられる定番の変数である．
+
+## 成績変数（5教科）
+
+子どもの自己評価による5教科の成績．5段階評価（1=下のほう〜5=上のほう）．
+
+```{r}
+#| eval: false
+# 5教科の成績変数を作成（W1）
+d <- d |>
+  mutate(
+    # 各教科の成績（欠損値処理）
+    grade_japanese__2015 = na_if(ds0000000148_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    grade_math__2015 = na_if(ds0000000149_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    grade_science__2015 = na_if(ds0000000150_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    grade_social__2015 = na_if(ds0000000151_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    grade_english__2015 = na_if(ds0000000152_w1c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+
+# 確認
+d |>
+  select(starts_with("grade_")) |>
+  summary()
+```
+
+### 総合成績の作成（主成分分析）
+
+5教科の成績から総合的な学力指標を合成する．
+
+```{r}
+#| eval: false
+# 5教科の成績で主成分分析
+grade_vars <- d |>
+  select(grade_japanese__2015, grade_math__2015, grade_science__2015,
+         grade_social__2015, grade_english__2015) |>
+  drop_na()
+
+# 主成分分析の実行
+pca_result <- prcomp(grade_vars, scale. = TRUE)
+
+# 結果の確認
+summary(pca_result)  # 寄与率
+pca_result$rotation  # 因子負荷量
+
+# 第1主成分を総合成績として使用
+d <- d |>
+  mutate(
+    grade_total__2015 = if_else(
+      !is.na(grade_japanese__2015) & !is.na(grade_math__2015) &
+        !is.na(grade_science__2015) & !is.na(grade_social__2015) &
+        !is.na(grade_english__2015),
+      predict(pca_result, newdata = pick(grade_japanese__2015, grade_math__2015,
+                                          grade_science__2015, grade_social__2015,
+                                          grade_english__2015))[, 1],
+      NA
+    )
+  )
+```
+
+::: {.callout-note}
+## 主成分分析による合成変数
+第1主成分は通常，全教科に正の負荷量を持ち「総合学力」と解釈できる．5教科の成績は相関が高いため，第1主成分の寄与率は60〜70%程度になることが多い．
+:::
+
+## 教育アスピレーション（希望進学段階）
+
+子どもと親それぞれの希望進学段階．
+
+```{r}
+#| eval: false
+# 子どもの希望進学段階（W1）
+# 1=中学まで, 2=高校まで, 3=専門学校まで, 4=短大まで, 5=大学まで, 6=大学院まで
+d <- d |>
+  mutate(
+    aspiration_child__2015 = na_if(ds0000000198_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    aspiration_parent__2015 = na_if(ds0000000198_w1p, 9999) |> na_if(8888) |> na_if(7777)
+  )
+
+# カテゴリ変数として作成
+d <- d |>
+  mutate(
+    aspiration_child_cat__2015 = case_match(
+      aspiration_child__2015,
+      1 ~ "中学まで",
+      2 ~ "高校まで",
+      3 ~ "専門学校まで",
+      4 ~ "短大まで",
+      5 ~ "大学まで",
+      6 ~ "大学院まで",
+      .default = NA
+    ) |> factor(levels = c("中学まで", "高校まで", "専門学校まで",
+                           "短大まで", "大学まで", "大学院まで"))
+  )
+
+# 確認
+d |> count(aspiration_child_cat__2015)
+```
+
+### 大学進学希望ダミー
+
+```{r}
+#| eval: false
+# 大学以上への進学希望（二値変数）
+d <- d |>
+  mutate(
+    aspiration_univ_child__2015 = case_when(
+      aspiration_child__2015 >= 5 ~ 1,  # 大学・大学院
+      aspiration_child__2015 %in% 1:4 ~ 0,
+      .default = NA
+    ),
+    aspiration_univ_parent__2015 = case_when(
+      aspiration_parent__2015 >= 5 ~ 1,
+      aspiration_parent__2015 %in% 1:4 ~ 0,
+      .default = NA
+    )
+  )
+```
+
+## 学習意欲（内発的・外発的動機）
+
+学習意欲の理由を内発的動機と外発的動機に分類する．
+
+```{r}
+#| eval: false
+# 学習意欲項目（W2以降で測定）
+d <- d |>
+  mutate(
+    # 内発的動機
+    motiv_interest__2016 = na_if(ds0000000224_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「新しいことを知るのがうれしいから」
+    motiv_useful__2016 = na_if(ds0000000225_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「ふだんの生活に役立つから」
+    motiv_fun__2016 = na_if(ds0000000229_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「問題を解くことがおもしろいから」
+
+    # 外発的動機
+    motiv_praise__2016 = na_if(ds0000000226_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「成績がよいとまわりの人がほめてくれるから」
+    motiv_competition__2016 = na_if(ds0000000227_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「友だちに負けたくないから」
+    motiv_university__2016 = na_if(ds0000000228_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「自分の希望する大学に進みたいから」
+    motiv_avoid__2016 = na_if(ds0000000230_w2c, 9999) |> na_if(8888) |> na_if(7777)
+    # 「先生や親にしかられたくないから」
+  )
+
+# 内発的動機の合計スコア
+d <- d |>
+  mutate(
+    motiv_intrinsic__2016 = (motiv_interest__2016 + motiv_useful__2016 + motiv_fun__2016) / 3,
+    motiv_extrinsic__2016 = (motiv_praise__2016 + motiv_competition__2016 + motiv_avoid__2016) / 3
+  )
+```
+
+::: {.callout-note}
+## 内発的動機と外発的動機
+- **内発的動機**：活動自体に興味・関心があって行う（知る喜び，面白さ）
+- **外発的動機**：報酬獲得や罰回避のために行う（ほめられる，しかられない）
+
+自己決定理論（Deci & Ryan）では，内発的動機が高いほど学習の質が高く，持続性があるとされる．
+:::
+
+## 学習方法・メタ認知
+
+効果的な学習方法に関する変数．
+
+```{r}
+#| eval: false
+# 学習方法（W2以降）
+d <- d |>
+  mutate(
+    # 計画・管理
+    study_plan__2016 = na_if(ds0000000214_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「計画をたてて勉強する」
+    study_monitor__2016 = na_if(ds0000000218_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「何が分かっていないか確かめながら勉強する」
+
+    # 深い処理
+    study_review__2016 = na_if(ds0000000215_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「テストで間違えた問題をやり直す」
+    study_alternative__2016 = na_if(ds0000000216_w2c, 9999) |> na_if(8888) |> na_if(7777),
+    # 「問題を解いた後、ほかの解き方がないかを考える」
+
+    # 協同学習
+    study_peer__2016 = na_if(ds0000000220_w2c, 9999) |> na_if(8888) |> na_if(7777)
+    # 「友だちと勉強を教えあう」
+  )
+
+# メタ認知スコア（計画・モニタリング）
+d <- d |>
+  mutate(
+    metacognition__2016 = (study_plan__2016 + study_monitor__2016) / 2
+  )
+```
+
+## 自尊感情・自信
+
+```{r}
+#| eval: false
+# 自尊感情・自信
+d <- d |>
+  mutate(
+    # 自分に自信がある
+    self_confidence__2015 = na_if(ds0000000360_w1p, 9999) |> na_if(8888) |> na_if(7777),
+    # 失敗しても自信を取り戻せる
+    self_resilience__2015 = na_if(ds0000000361_w1c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+
+# 自尊感情スコア
+d <- d |>
+  mutate(
+    self_esteem__2015 = (self_confidence__2015 + self_resilience__2015) / 2
+  )
+```
+
+## 幸福感・ウェルビーイング
+
+W3以降で測定される主観的幸福感．
+
+```{r}
+#| eval: false
+# 幸福感（W3以降）
+d <- d |>
+  mutate(
+    # 自分は今、幸せだ
+    happiness_now__2017 = na_if(ds0000000703_w3c, 9999) |> na_if(8888) |> na_if(7777),
+    # 自分はこの先、幸せになれる
+    happiness_future__2017 = na_if(ds0000000704_w3c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+
+# 幸福感スコア
+d <- d |>
+  mutate(
+    wellbeing__2017 = (happiness_now__2017 + happiness_future__2017) / 2
+  )
+```
+
+## 学校適応
+
+学校生活への適応度を測定する変数．
+
+```{r}
+#| eval: false
+# 学校適応（W1）
+d <- d |>
+  mutate(
+    # 授業が楽しい
+    school_enjoy_class__2015 = na_if(ds0000000244_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 自分の学校が好きだ
+    school_like__2015 = na_if(ds0000000250_w1c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+
+# 学校適応スコア
+d <- d |>
+  mutate(
+    school_adapt__2015 = (school_enjoy_class__2015 + school_like__2015) / 2
+  )
+```
+
+## 将来展望
+
+将来の目標や職業意識に関する変数．
+
+```{r}
+#| eval: false
+# 将来展望
+d <- d |>
+  mutate(
+    # 将来の目標がはっきりしている
+    future_goal__2015 = na_if(ds0000000368_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 将来なりたい職業はあるか（1=ある, 2=ない）
+    future_job_have__2015 = na_if(ds0000000210_w1c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+
+# 職業志望ダミー（1=ある, 0=ない）
+d <- d |>
+  mutate(
+    future_job__2015 = case_match(
+      future_job_have__2015,
+      1 ~ 1,
+      2 ~ 0,
+      .default = NA
+    )
+  )
+```
+
+## 親の関わり（勉強への関与）
+
+親の学習関与に関する変数群．W2以降で詳細に測定される．
+
+```{r}
+#| eval: false
+# 親の勉強への関わり（W2）
+d <- d |>
+  mutate(
+    # 直接的関与
+    parent_help_hw__2016 = na_if(ds0000000620_w2p, 9999) |> na_if(8888) |> na_if(7777),
+    # 「学校の宿題を手伝う」
+    parent_know_content__2016 = na_if(ds0000000621_w2p, 9999) |> na_if(8888) |> na_if(7777),
+    # 「子どもが学校で勉強している内容を知っている」
+    parent_teach_plan__2016 = na_if(ds0000000627_w2p, 9999) |> na_if(8888) |> na_if(7777),
+    # 「勉強の計画の仕方を教える」
+
+    # 声かけ・圧力
+    parent_say_study__2016 = na_if(ds0000000622_w2p, 9999) |> na_if(8888) |> na_if(7777),
+    # 「勉強しなさいと言う」
+    parent_scold__2016 = na_if(ds0000000623_w2p, 9999) |> na_if(8888) |> na_if(7777),
+    # 「テストの成績が悪いとしかる」
+
+    # 意義づけ・環境
+    parent_meaning__2016 = na_if(ds0000000625_w2p, 9999) |> na_if(8888) |> na_if(7777),
+    # 「勉強の意義や大切さを伝える」
+    parent_environment__2016 = na_if(ds0000000632_w2p, 9999) |> na_if(8888) |> na_if(7777)
+    # 「落ち着いて勉強できる環境を整える」
+  )
+
+# 関与タイプ別スコア
+d <- d |>
+  mutate(
+    # 支援的関与（環境整備・意義づけ）
+    parent_support__2016 = (parent_meaning__2016 + parent_environment__2016 +
+                            parent_know_content__2016) / 3,
+    # 圧力的関与（命令・叱責）
+    parent_pressure__2016 = (parent_say_study__2016 + parent_scold__2016) / 2
+  )
+```
+
+::: {.callout-note}
+## 親の関与の2タイプ
+- **支援的関与**：環境整備，勉強の意義を伝える，内容を把握する
+- **圧力的関与**：「勉強しなさい」と言う，成績が悪いと叱る
+
+研究では，支援的関与は学力・学習意欲にプラス，圧力的関与は内発的動機を低下させることが多い．
+:::
+
+## 親子の会話
+
+親子間のコミュニケーションに関する変数．
+
+```{r}
+#| eval: false
+# 親子の会話（W1）
+d <- d |>
+  mutate(
+    # 父との会話：勉強や成績のこと
+    talk_father_study__2015 = na_if(ds0000000317_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 母との会話：勉強や成績のこと
+    talk_mother_study__2015 = na_if(ds0000000318_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 父との会話：将来や進路のこと
+    talk_father_future__2015 = na_if(ds0000000319_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 母との会話：将来や進路のこと
+    talk_mother_future__2015 = na_if(ds0000000320_w1c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+```
+
+## 生活習慣・学習時間
+
+```{r}
+#| eval: false
+# 生活時間（W1）
+d <- d |>
+  mutate(
+    # 学校の宿題をする時間
+    time_homework__2015 = na_if(ds0000000095_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 学校の宿題以外の勉強をする時間
+    time_study__2015 = na_if(ds0000000096_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # テレビゲームや携帯ゲーム機で遊ぶ時間
+    time_game__2015 = na_if(ds0000000084_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 本を読む時間
+    time_reading__2015 = na_if(ds0000000088_w1c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+
+# 朝食習慣（1=よくある〜4=ほとんどない → 反転して高いほど良い習慣）
+d <- d |>
+  mutate(
+    breakfast_skip__2015 = na_if(ds0000000498_w1c, 9999) |> na_if(8888) |> na_if(7777),
+    # 朝食を食べる習慣（反転）
+    breakfast__2015 = case_when(
+      breakfast_skip__2015 %in% 1:4 ~ 5 - breakfast_skip__2015,
+      .default = NA
+    )
+  )
+```
+
+## 読み聞かせ・読書経験
+
+幼少期の読書環境．
+
+```{r}
+#| eval: false
+# 読み聞かせ・読書の頻度
+d <- d |>
+  mutate(
+    # 小学校入学前
+    reading_preschool__2015 = na_if(ds0000000145_w1p, 9999) |> na_if(8888) |> na_if(7777),
+    # 現在
+    reading_current__2015 = na_if(ds0000000146_w1p, 9999) |> na_if(8888) |> na_if(7777)
+  )
+```
+
+## 友人関係
+
+```{r}
+#| eval: false
+# 友人数（W3以降）
+d <- d |>
+  mutate(
+    # 同じ学校の友人数
+    friends_same_school__2017 = na_if(ds0000000732_w3c, 9999) |> na_if(8888) |> na_if(7777),
+    # 違う学校の友人数
+    friends_diff_school__2017 = na_if(ds0000000733_w3c, 9999) |> na_if(8888) |> na_if(7777),
+    # SNSで知り合った友人数
+    friends_online__2017 = na_if(ds0000000734_w3c, 9999) |> na_if(8888) |> na_if(7777)
+  )
+```
+
+## 変数一覧
+
+作成した主要変数の一覧．
+
+| カテゴリ | 変数名 | 内容 | Wave |
+|----------|--------|------|------|
+| **成績** | `grade_japanese__YYYY` | 国語の成績 | W1〜 |
+| | `grade_math__YYYY` | 数学の成績 | W1〜 |
+| | `grade_total__YYYY` | 総合成績（主成分） | W1〜 |
+| **教育アスピ** | `aspiration_child__YYYY` | 子どもの希望進学段階 | W1〜 |
+| | `aspiration_univ_child__YYYY` | 大学進学希望ダミー | W1〜 |
+| **学習意欲** | `motiv_intrinsic__YYYY` | 内発的動機 | W2〜 |
+| | `motiv_extrinsic__YYYY` | 外発的動機 | W2〜 |
+| **学習方法** | `metacognition__YYYY` | メタ認知（計画・モニタリング） | W2〜 |
+| **自尊感情** | `self_esteem__YYYY` | 自尊感情スコア | W1〜 |
+| **幸福感** | `wellbeing__YYYY` | 幸福感スコア | W3〜 |
+| **学校適応** | `school_adapt__YYYY` | 学校適応スコア | W1〜 |
+| **親の関わり** | `parent_support__YYYY` | 支援的関与 | W2〜 |
+| | `parent_pressure__YYYY` | 圧力的関与 | W2〜 |
+| **生活習慣** | `time_homework__YYYY` | 宿題時間 | W1〜 |
+| | `time_game__YYYY` | ゲーム時間 | W1〜 |
+| | `breakfast__YYYY` | 朝食習慣 | W1〜 |
+
+::: {.callout-tip}
+## 変数作成のポイント
+1. **欠損値処理**：`na_if()`で9999, 8888, 7777をNAに変換
+2. **変数名の規則**：`概念名__年度`（例：`grade_math__2015`）
+3. **合成変数**：複数項目の平均または主成分分析
+4. **時系列分析**：各年度の変数を作成し，`pivot_longer()`でlong形式に
+:::

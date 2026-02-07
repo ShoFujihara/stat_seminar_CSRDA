@@ -1,0 +1,70 @@
+---
+title: "「子どもの生活と学びに関する親子調査　Wave1～7, 2015-2021」（調査番号：1571）コードブック（簡易版）"
+author: "藤原翔（東京大学社会科学研究所）"
+format:
+  html:
+    toc: true
+    toc-location: right
+    embed-resources: true
+    page-layout: full
+    number-sections: true
+execute:
+  warning: false
+  message: false
+  echo: false
+date: "`r Sys.Date()`"
+---
+
+```{r data}
+#| echo: false
+library(tidyverse)
+library(haven)
+library(labelled)
+library(DT)
+library(knitr)
+
+d <- read_dta("~/Data/Benesse/1571/1571.dta")
+```
+
+
+# 調査の概要
+
+- 本資料は「子どもの生活と学びに関する親子調査　Wave1～7, 2015-2021」（調査番号：1571）のメタデータより作成した非公式のコードブックです．変数の検索や確認に利用してください．
+
+- 調査の概要については以下を参照してください．
+<https://doi.org/10.34500/SSJDA.1571>
+
+- この簡易版には度数分布は含まれていません．
+
+
+# 変数や値ラベルの検索
+
+- 変数名や値ラベルの検索が可能です．ただし，調査票も必ず確認するようにしてください．
+
+
+```{r search}
+#| echo: false
+# look_for()でメタデータを取得
+base <- look_for(d) |>
+  convert_list_columns_to_character() |>
+  select(2:3, 7) |>
+  tibble::rownames_to_column()
+
+# インタラクティブなテーブルとして表示
+base |>
+  rename(
+    番号 = rowname,
+    変数 = variable,
+    変数ラベル = label,
+    値ラベル = value_labels
+  ) |>
+  datatable(
+    filter = 'top',
+    rownames = FALSE,
+    options = list(
+      autoWidth = TRUE,
+      pageLength = 20,
+      columnDefs = list(list(width = '400px', targets = c(2, 3)))
+    )
+  )
+```
