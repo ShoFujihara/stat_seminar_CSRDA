@@ -3115,7 +3115,12 @@ vertical-align: -.125em;
   <ul class="collapse">
   <li><a href="#スクリプトの作成" id="toc-スクリプトの作成" class="nav-link" data-scroll-target="#スクリプトの作成"><span class="header-section-number">7.1</span> スクリプトの作成</a></li>
   <li><a href="#コメント" id="toc-コメント" class="nav-link" data-scroll-target="#コメント"><span class="header-section-number">7.2</span> コメント</a></li>
-  <li><a href="#計算の実行" id="toc-計算の実行" class="nav-link" data-scroll-target="#計算の実行"><span class="header-section-number">7.3</span> 計算の実行</a></li>
+  <li><a href="#スクリプトの実行方法" id="toc-スクリプトの実行方法" class="nav-link" data-scroll-target="#スクリプトの実行方法"><span class="header-section-number">7.3</span> スクリプトの実行方法</a>
+  <ul class="collapse">
+  <li><a href="#行ずつ実行最もよく使う" id="toc-行ずつ実行最もよく使う" class="nav-link" data-scroll-target="#行ずつ実行最もよく使う"><span class="header-section-number">7.3.1</span> 1行ずつ実行（最もよく使う）</a></li>
+  <li><a href="#スクリプト全体を実行" id="toc-スクリプト全体を実行" class="nav-link" data-scroll-target="#スクリプト全体を実行"><span class="header-section-number">7.3.2</span> スクリプト全体を実行</a></li>
+  <li><a href="#実行してみる" id="toc-実行してみる" class="nav-link" data-scroll-target="#実行してみる"><span class="header-section-number">7.3.3</span> 実行してみる</a></li>
+  </ul></li>
   <li><a href="#オブジェクトへの代入" id="toc-オブジェクトへの代入" class="nav-link" data-scroll-target="#オブジェクトへの代入"><span class="header-section-number">7.4</span> オブジェクトへの代入</a></li>
   <li><a href="#ベクトルの作成" id="toc-ベクトルの作成" class="nav-link" data-scroll-target="#ベクトルの作成"><span class="header-section-number">7.5</span> ベクトルの作成</a></li>
   <li><a href="#ベクトルの計算" id="toc-ベクトルの計算" class="nav-link" data-scroll-target="#ベクトルの計算"><span class="header-section-number">7.6</span> ベクトルの計算</a></li>
@@ -3157,7 +3162,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">公開</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">2026年2月7日</p>
+      <p class="date">2026年2月15日</p>
     </div>
   </div>
   
@@ -3395,6 +3400,7 @@ Paneの配置変更
 <li><strong><code>library()</code></strong>: インストール済みのパッケージをRに読み込む（<strong>Rを起動するたびに必要</strong>）</li>
 </ul>
 <p>スマートフォンのアプリに例えると、<code>install.packages()</code> はアプリのインストール、<code>library()</code> はアプリを開く操作に相当します。</p>
+<p>なお、Rを<strong>メジャーアップデート</strong>（例: 4.3 → 4.4）した場合はパッケージの再インストールが必要になることがあります（RStudioのアップデートでは不要です）。</p>
 </div>
 </div>
 <p>以下のコードをRStudioのコンソールに貼り付けて実行してください。</p>
@@ -3603,6 +3609,19 @@ CSVファイルを使う場合
 <li>右下の「Data Frame」でデータが正しく表示されていることを確認</li>
 <li>「Import」をクリック</li>
 </ol>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Code Previewを活用する
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Import Datasetの画面右下に表示される「Code Preview」には、読み込みに使われるRコードが表示されています。このコードをコピーしてスクリプトに貼り付けておけば、次回以降はメニューを使わずにコードから同じデータを読み込めます。</p>
+</div>
+</div>
 <div id="fig-read_stata" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-read_stata-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -3620,7 +3639,7 @@ CSVファイルを使う場合
 <h1 data-number="7"><span class="header-section-number">7</span> Rの基本操作（任意）</h1>
 <div class="quarto-video ratio ratio-16x9"><iframe data-external="1" src="https://www.youtube.com/embed/9IELKx_ir3E" title frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
 <div class="quarto-video ratio ratio-16x9"><iframe data-external="1" src="https://www.youtube.com/embed/zKgxQQlmjfo" title frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
-<p>時間があれば、以下の基本操作もぜひ試してみてください。セミナー当日の理解がスムーズになります。</p>
+<p>時間があれば、以下の基本操作もぜひ試してみてください。セミナー当日の理解がスムーズになります。これらはセミナー本体の資料でも改めて説明しますので、ここでは雰囲気をつかむ程度で大丈夫です。</p>
 <section id="スクリプトの作成" class="level2" data-number="7.1">
 <h2 data-number="7.1" class="anchored" data-anchor-id="スクリプトの作成"><span class="header-section-number">7.1</span> スクリプトの作成</h2>
 <p><a href="#fig-script" class="quarto-xref">図 4</a> の赤枠部分からRスクリプトを新規作成できます。</p>
@@ -3646,9 +3665,55 @@ CSVファイルを使う場合
 </div>
 </div>
 </section>
-<section id="計算の実行" class="level2" data-number="7.3">
-<h2 data-number="7.3" class="anchored" data-anchor-id="計算の実行"><span class="header-section-number">7.3</span> 計算の実行</h2>
-<p>スクリプトにコードを入力し、「Ctrl + Enter」（Macは「Cmd + Enter」）で実行します。</p>
+<section id="スクリプトの実行方法" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="スクリプトの実行方法"><span class="header-section-number">7.3</span> スクリプトの実行方法</h2>
+<p>スクリプトにコードを入力したら、以下のいずれかの方法で実行します。</p>
+<section id="行ずつ実行最もよく使う" class="level3" data-number="7.3.1">
+<h3 data-number="7.3.1" class="anchored" data-anchor-id="行ずつ実行最もよく使う"><span class="header-section-number">7.3.1</span> 1行ずつ実行（最もよく使う）</h3>
+<p>カーソルがある行を実行し、自動的に次の行に移動します。</p>
+<ul>
+<li><strong>キーボード</strong>: <code>Ctrl + Enter</code>（Macは <code>Cmd + Enter</code>）</li>
+<li><strong>ボタン</strong>: スクリプトペイン右上の「Run」ボタン</li>
+</ul>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+複数行をまとめて実行
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>実行したい範囲をマウスで選択してから <code>Ctrl + Enter</code>（Macは <code>Cmd + Enter</code>）を押すと、選択した部分だけをまとめて実行できます。</p>
+</div>
+</div>
+</section>
+<section id="スクリプト全体を実行" class="level3" data-number="7.3.2">
+<h3 data-number="7.3.2" class="anchored" data-anchor-id="スクリプト全体を実行"><span class="header-section-number">7.3.2</span> スクリプト全体を実行</h3>
+<p>スクリプトの全行を一括で実行します。</p>
+<ul>
+<li><strong>キーボード</strong>: <code>Ctrl + Shift + Enter</code>（Macは <code>Cmd + Shift + Enter</code>）</li>
+<li><strong>ボタン</strong>: スクリプトペイン右上の「Source」ボタン</li>
+<li><strong>コード</strong>: <code>source(&quot;scripts/my_script.R&quot;)</code></li>
+</ul>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+RunとSourceの違い
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>「Run」はカーソル位置の1行（または選択範囲）を実行します。「Source」はスクリプト全体を最初から最後まで実行します。データの読み込みから分析まで一連の処理をまとめて再実行したいときに「Source」が便利です。</p>
+</div>
+</div>
+</section>
+<section id="実行してみる" class="level3" data-number="7.3.3">
+<h3 data-number="7.3.3" class="anchored" data-anchor-id="実行してみる"><span class="header-section-number">7.3.3</span> 実行してみる</h3>
+<p>以下のコードをスクリプトに入力し、1行ずつ実行してみてください。</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 足し算</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span> <span class="sc">+</span> <span class="dv">1</span></span></code><button title="コピー" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -3666,6 +3731,7 @@ CSVファイルを使う場合
 <pre><code>[1] 4</code></pre>
 </div>
 </div>
+</section>
 </section>
 <section id="オブジェクトへの代入" class="level2" data-number="7.4">
 <h2 data-number="7.4" class="anchored" data-anchor-id="オブジェクトへの代入"><span class="header-section-number">7.4</span> オブジェクトへの代入</h2>
@@ -3802,14 +3868,14 @@ CSVファイルを使う場合
 <h1 data-number="8"><span class="header-section-number">8</span> チェックリスト</h1>
 <p>セミナー当日までに、以下が完了していることを確認してください。</p>
 <ul class="task-list">
-<li><label><input type="checkbox">R・RStudioがインストールされている</label></li>
-<li><label><input type="checkbox">RStudioが正常に起動する</label></li>
-<li><label><input type="checkbox"><code>benesse_seminar</code>プロジェクトが作成されている</label></li>
-<li><label><input type="checkbox">フォルダ構成（data/raw, data/processed, scripts, figures, tables）が作成されている（難しければセミナー当日に一緒に作成します）</label></li>
-<li><label><input type="checkbox">必要なパッケージがインストールされている</label></li>
+<li><label><input type="checkbox">R・RStudioがインストールされている（→ <a href="#r・rstudioのインストール">第2章</a>）</label></li>
+<li><label><input type="checkbox">RStudioが正常に起動する（→ <a href="#rstudioの起動確認">第2.3節</a>）</label></li>
+<li><label><input type="checkbox"><code>benesse_seminar</code>プロジェクトが作成されている（→ <a href="#プロジェクトの作成">第3章</a>）</label></li>
+<li><label><input type="checkbox">フォルダ構成（data/raw, data/processed, scripts, figures, tables）が作成されている（→ <a href="#フォルダ構成の作成">第3.2節</a>、難しければセミナー当日に一緒に作成します）</label></li>
+<li><label><input type="checkbox">必要なパッケージがインストールされている（→ <a href="#パッケージのインストール">第4章</a>）</label></li>
 <li><label><input type="checkbox"><code>library(tidyverse)</code> がエラーなく実行できる</label></li>
-<li><label><input type="checkbox">データファイルが正しい場所に配置されている</label></li>
-<li><label><input type="checkbox">データの読み込みが成功する</label></li>
+<li><label><input type="checkbox">データファイルが正しい場所に配置されている（→ <a href="#データのダウンロードと配置">第5章</a>）</label></li>
+<li><label><input type="checkbox">データの読み込みが成功する（→ <a href="#データ読み込みの確認">第6章</a>）</label></li>
 </ul>
 <p>すべてにチェックがついたら準備完了です。当日お会いできることを楽しみにしています。</p>
 </section>
@@ -3834,7 +3900,7 @@ CSVファイルを使う場合
 <li><a href="https://youtu.be/dhHGNr-3qdA">自分で関数を作る</a>（3:46）</li>
 <li><a href="https://youtu.be/kNx_Mjv8FGI">変数からデータを作成する方法</a>（5:35）</li>
 <li><a href="https://youtu.be/L5dac9sXm3c">パイプ演算子</a>（25:20）</li>
-<li><a href="https://youtu.be/JDC1sY_bouA">RStudio Cloudの設定</a>（8:27）</li>
+<li><a href="https://youtu.be/JDC1sY_bouA">Posit Cloud（旧RStudio Cloud）の設定</a>（8:27）</li>
 </ul>
 </section>
 <section id="参考リンク" class="level2" data-number="9.3">
